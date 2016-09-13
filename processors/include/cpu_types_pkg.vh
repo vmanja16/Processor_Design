@@ -99,6 +99,7 @@ package cpu_types_pkg;
     ALU_SLTU    = 4'b1011
   } aluop_t;
 
+
 // instruction format types
   // register bits types
   typedef logic [REG_W-1:0] regbits_t;
@@ -140,6 +141,21 @@ package cpu_types_pkg;
     logic [DBLK_W-1:0]  blkoff;
     logic [DBYT_W-1:0]  bytoff;
   } dcachef_t;
+
+  // pcselect
+  typedef enum logic [1:0] {
+    JUMP,
+    JUMPREGISTER,
+    BRANCH
+  } pcselect_t;
+  
+  // wdatselect
+  typedef enum logic [1:0] {
+    DMEMLOAD,
+    LUI_WORD,
+    RTN_ADDR,
+    PORT_O
+  } wdatselect_t;
 
 // word_t
   typedef logic [WORD_W-1:0] word_t;
