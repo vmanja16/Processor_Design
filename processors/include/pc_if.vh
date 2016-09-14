@@ -15,17 +15,19 @@ interface pc_if;
   import cpu_types_pkg::*;
   
   pcselect_t     pc_select;
-  word_t    rtn_addr, imem_addr, jump_data, init;
-  logic pc_halt;
+  word_t    rtn_addr, imem_addr, jump_data;
+
+  
+
   // pc ports
   modport pc (
-    input   pc_select, jump_data, init, pc_halt,
+    input   pc_select, jump_data,
     output imem_addr, rtn_addr
   );
   // pc tb
   modport tb (
     input   rtn_addr, imem_addr,
-    output pc_select, jump_data, init, pc_halt
+    output pc_select, jump_data,
   );
 endinterface
 

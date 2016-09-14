@@ -31,7 +31,7 @@ interface request_unit_if;
 
 // pc
   pcselect_t pc_select;
-  word_t jump_data, init;
+  word_t jump_data;
 
 // alu
   aluop_t aluop;
@@ -44,12 +44,12 @@ interface request_unit_if;
   // control_unit ports
   modport cu (
     input   imemload, rdat2, port_o, z_fl,
-    output  cpu_halt, datomic, dREN, dWEN, dmemaddr, dmemstore, alusrc, wdatsel, WEN, wsel, rsel1, rsel2, pc_select, jump_data, init, immediate, lui_word
+    output  cpu_halt, datomic, dREN, dWEN, dmemaddr, dmemstore, alusrc, wdatsel, WEN, wsel, rsel1, rsel2, pc_select, jump_data, immediate, lui_word, aluop
   );
   // control_unit tb
   modport tb (
-    input  cpu_halt, datomic, dREN, dWEN, dmemaddr, dmemstore, alusrc, wdatsel, WEN, wsel, rsel1, rsel2, rdat2, lui_word, pc_select, jump_data, init, immediate
-    output imemload, rdat2, port_o, z_fl;
+    input  cpu_halt, datomic, dREN, dWEN, dmemaddr, dmemstore, alusrc, wdatsel, WEN, wsel, rsel1, rsel2, lui_word, pc_select, jump_data, immediate, aluop
+    output imemload, rdat2, port_o, z_fl
   );
   
 endinterface
