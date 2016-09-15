@@ -31,7 +31,7 @@ assign ccif.dwait = ~((ccif.ramstate == ACCESS) && (ccif.dREN||ccif.dWEN));
 
 // RAM outputs
 assign ccif.ramWEN   = ccif.dWEN;
-assign ccif.ramREN   = (ccif.dWEN) ? 1'b0 : (ccif.iREN|ccif.dREN);
+assign ccif.ramREN   = (ccif.dWEN) ? 0 : (ccif.iREN|ccif.dREN);
 assign ccif.ramstore = ccif.dstore;
 assign ccif.ramaddr  = (ccif.dREN||ccif.dWEN) ? ccif.daddr : ccif.iaddr;
 

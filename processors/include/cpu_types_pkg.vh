@@ -146,7 +146,7 @@ package cpu_types_pkg;
     JUMP,
     JUMPREGISTER,
     BRANCH,
-    HALT,
+    PC_HALT,
     NEXT
   } pcselect_t;
   

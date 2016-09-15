@@ -16,19 +16,19 @@ interface pc_if;
   
   pcselect_t     pc_select;
   word_t    rtn_addr, imemaddr, jump_data;
-  logic ihit; logic dhit;
+  logic ihit;
 
   
 
   // pc ports
   modport pc (
-    input   pc_select, jump_data, ihit, dhit,
+    input   pc_select, jump_data,
     output imemaddr, rtn_addr
   );
   // pc tb
   modport tb (
-    input   rtn_addr, imemaddr, 
-    output pc_select, jump_data, ihit, dhit
+    input   rtn_addr, imemaddr, ihit,
+    output pc_select, jump_data
   );
 endinterface
 

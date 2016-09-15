@@ -10,7 +10,7 @@
 // all types
 `include "cpu_types_pkg.vh"
 
-interface request_unit_if;
+interface control_unit_if;
   // import types
   import cpu_types_pkg::*;
   
@@ -48,7 +48,7 @@ interface request_unit_if;
   );
   // control_unit tb
   modport tb (
-    input  cpu_halt, datomic, dREN, dWEN, dmemaddr, dmemstore, alusrc, wdatsel, WEN, wsel, rsel1, rsel2, lui_word, pc_select, jump_data, immediate, aluop
+    input  cpu_halt, datomic, dREN, dWEN, dmemaddr, dmemstore, alusrc, wdatsel, WEN, wsel, rsel1, rsel2, lui_word, pc_select, jump_data, immediate, aluop,
     output imemload, rdat2, port_o, z_fl
   );
   

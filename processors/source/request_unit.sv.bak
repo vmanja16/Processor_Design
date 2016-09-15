@@ -9,7 +9,7 @@ import cpu_types_pkg::*;
 
 module request_unit(input CLK, nRST, request_unit_if.ru ruif);
 
-always_ff @(posedge CLK, negedge nRST) begin
+always_ff @(posedge CLK, negedge nRST)begin
   if (nRST == 0) begin ruif.dmemREN <=0; ruif.dmemWEN<=0; end // deAssert data signals
   else begin
       ruif.dmemREN <= (ruif.dhit ? 0 : ( ruif.ihit ? ruif.dREN : 0 ));

@@ -31,7 +31,7 @@ always_comb begin
   endcase
 end // end always
 
-assign al.z_fl = (al.port_o == 32'b0) ? 1'b1: 1'b0;
+assign al.z_fl = (al.port_o == 0) ? 1:0;
 assign al.n_fl = al.port_o[31];
 
 

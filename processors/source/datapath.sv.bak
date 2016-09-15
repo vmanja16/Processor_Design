@@ -52,13 +52,6 @@ control_unit CF (CLK, nRST, cuif);
 pc PROGRAM_COUNTER (CLK, nRST, pcif);
 
 // DATHAPATH OUTPUTS
-/*
-always_ff @ (posedge CLK, negedge nRST) begin
-  if (nRST == 0) dpif.halt <= 0;
-  else if(cuif.cpu_halt) dpif.halt <= 1;
-  else dpif.halt <= 0;
-end
-*/
 assign dpif.halt      = cuif.cpu_halt; // not sure here
 assign dpif.imemREN   = ruif.imemREN;
 assign dpif.dmemREN   = ruif.dmemREN;
@@ -71,8 +64,6 @@ assign dpif.dmemaddr  = cuif.dmemaddr;
 // PC inputs
 assign pcif.pc_select   = cuif.pc_select;
 assign pcif.jump_data   = cuif.jump_data;
-assign pcif.ihit        = dpif.ihit;
-assign pcif.dhit        = dpif.dhit;
 
 // REQUEST_UNIT inputs
 assign ruif.cpu_halt = cuif.cpu_halt;
