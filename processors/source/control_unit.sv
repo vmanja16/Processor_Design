@@ -27,9 +27,9 @@ module control_unit(input CLK, nRST, control_unit_if.cu cuif);
 // op    ----jump_address----
 // op=0  rs rt rd shamt funct
 // internals
-r_t instr; r_t r_instr; j_t j_instr; i_t i_instr; word_t zero_extended_immediate, sign_extended_immediate, extended_shamt;
+r_t instr; r_t r_instr; i_t i_instr; word_t zero_extended_immediate, sign_extended_immediate, extended_shamt;
 
-assign r_instr = cuif.imemload; assign j_instr = cuif.imemload; assign i_instr = cuif.imemload;
+assign r_instr = cuif.imemload; assign i_instr = cuif.imemload;
 assign instr = cuif.imemload;
 assign zero_extended_immediate = {16'h0, cuif.imemload[15:0]};
 assign sign_extended_immediate = { {16{cuif.imemload[15]}}, cuif.imemload[15:0] };
@@ -43,7 +43,7 @@ assign cuif.dREN      = (instr.opcode == LW) ? 1 : 0; // assert dREN on LW only
 assign cuif.dmemaddr  = cuif.port_o; // addr is an ALU sum for SW/LW
 assign cuif.dmemstore = cuif.rdat2; // for SW, dmemstore is a register value
 assign cuif.cpu_halt  = (instr.opcode == HALT) ? 1 : 0;
-assign cuif.datomic   = 1'b0; // WHAT IS DATOMIC!?!?!?!?!?!?!??!!!?!?!
+assign cuif.datomic   = 1'b0; // Only need on pipeline apparently
 always_comb begin
 // DEFAULTS
 cuif.pc_select = NEXT; // overwritten on BNE BEQ J JAL JR HALT
@@ -51,7 +51,7 @@ cuif.jump_data = cuif.imemload; // overwritten for JR
 cuif.immediate = sign_extended_immediate; // overwritten on XORI ORI ANDI SLL SRL
 cuif.aluop = ALU_ADD; // not overwritten on J, JAL, JR, LUI
 cuif.wdatsel = PORT_O; // overwritten on LUI, JAL, LW
-cuif.WEN  = 0; // not overwritten JR, bNeq, SW 
+cuif.WEN  = 0; // not overwritten JR, branches, SW 
 
 cuif.wsel = i_instr.rt; // overwritten on JAL, RTYPE
 
@@ -165,6 +165,7 @@ casez(instr.opcode)
 			end
 			JR: begin
 	      cuif.pc_select = JUMPREGISTER;
+              cuif.rsel2 = r_instr.rs;
 	      cuif.jump_data = cuif.rdat2;
         // No aluop
 	      cuif.WEN = 0; 
