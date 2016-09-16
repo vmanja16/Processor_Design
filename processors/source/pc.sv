@@ -21,7 +21,7 @@ assign pcif.rtn_addr  = current_pc + 32'h4;
 assign pcif.imemaddr = current_pc;
 
 always_ff @ (posedge CLK, negedge nRST) begin
-	if (nRST == 0) current_pc <= 32'h0;
+	if (nRST == 0) current_pc <= PC_INIT;
 	else if (pcif.ihit) current_pc <= next_pc; // old: if (pcif.ihit && (~pcif.dhit))
 end // end always_ff
 
