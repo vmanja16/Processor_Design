@@ -52,14 +52,15 @@ control_unit CF (CLK, nRST, cuif);
 pc PROGRAM_COUNTER (CLK, nRST, pcif);
 
 // DATHAPATH OUTPUTS
-/*
+
+// didn't make sense because it's the metastable cpu_halt!
 always_ff @ (posedge CLK, negedge nRST) begin
   if (nRST == 0) dpif.halt <= 0;
-  else if(cuif.cpu_halt) dpif.halt <= 1;
+  else if(cuif.cpu_halt) dpif.halt <=1;
   else dpif.halt <= 0;
 end
-*/
-assign dpif.halt      = cuif.cpu_halt; // not sure here
+
+//assign dpif.halt      = cuif.cpu_halt; // not sure here
 assign dpif.imemREN   = ruif.imemREN;
 assign dpif.dmemREN   = ruif.dmemREN;
 assign dpif.dmemWEN   = ruif.dmemWEN;
@@ -89,7 +90,7 @@ assign al.port_b = (cuif.alusrc) ? cuif.immediate : rfif.rdat2;
 // REGISTER_FILE inputs
 assign rfif.rsel1 = cuif.rsel1;
 assign rfif.rsel2 = cuif.rsel2;
-assign rfif.WEN   = cuif.WEN;
+assign rfif.WEN   = cuif.WEN && (dpif.ihit || dpif.dhit);
 assign rfif.wsel  = cuif.wsel;
 always_comb begin
   casez(cuif.wdatsel)
