@@ -57,8 +57,7 @@ pc PROGRAM_COUNTER (CLK, nRST, pcif);
 always_ff @ (posedge CLK, negedge nRST) begin
   if (nRST == 0) dpif.halt <= 0;
   else if(cuif.cpu_halt) dpif.halt <=1;
-  else dpif.halt <= 0;
-end
+end // end always_ff
 
 //assign dpif.halt      = cuif.cpu_halt; // not sure here
 assign dpif.imemREN   = ruif.imemREN;
