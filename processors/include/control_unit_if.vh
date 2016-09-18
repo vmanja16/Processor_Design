@@ -1,6 +1,6 @@
 /*
   Vikram Manja
-	vmanja@purdue.edu
+  vmanja@purdue.edu
 
   control_unit interface
 */

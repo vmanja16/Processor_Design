@@ -41,9 +41,9 @@ pc_if pcif();
 request_unit_if ruif();
 control_unit_if cuif();
 // Map ALU
-alu ALU (al); // still need to assign the values 
+alu ALU (al); 
 // Map registers
-register_file RF (CLK, nRST, rfif); // still need to assign values
+register_file RF (CLK, nRST, rfif); 
 // Map Request Unit
 request_unit RU (CLK, nRST, ruif);
 // Map Control Unit
@@ -82,7 +82,7 @@ assign ruif.ihit     = dpif.ihit;
 assign ruif.dhit     = dpif.dhit;
 
 // ALU inputs
-assign al.alu_op  = cuif.aluop;
+assign al.alu_op = cuif.aluop;
 assign al.port_a = rfif.rdat1;
 assign al.port_b = (cuif.alusrc) ? cuif.immediate : rfif.rdat2;
 

@@ -11,9 +11,9 @@ module register_file (
 word_t next_register [31:0], register [31:0];
 
 always_ff @ (posedge CLK, negedge nRST) begin
-	if (nRST==0)        register <= '{default:'0}; // all 0 on nRST
-	else		    register <= next_register; // update reg
-	register[0] <= 32'b0; // set reg 0 to 0
+  if (nRST==0)  register <= '{default:'0}; // all 0 on nRST
+  else          register <= next_register; // update reg
+  register[0] <= 32'b0; // set reg 0 to 0
 end
 always_comb begin
 next_register = register;
