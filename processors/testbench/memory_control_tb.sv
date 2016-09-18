@@ -32,30 +32,31 @@ test PROG(CLK, nRST, cif0);
   ram RAM(CLK, nRST, ramif);
 `else
   memory_control DUT(
-    .\ccif.dload (ccif.dload),
-    .\ccif.dWEN (ccif.dWEN),
-    .\ccif.dREN (ccif.dREN),
-    .\ccif.dload (ccif.dload),
-    .\ccif.dwait (ccif.dwait),
-    .\ccif.daddr (ccif.daddr),
-    .\ccif.dstore (ccif.dstore),
-    .\ccif.iload (ccif.iload),
-    .\ccif.iREN (ccif.iREN),
-    .\ccif.iaddr (ccif.iaddr),
-    .\ccif.iwait (ccif.iwait),
-    .\ccif.ramWEN (ccif.ramWEN),
-    .\ccif.ramREN (ccif.ramREN),
-    .\ccif.ramaddr (ccif.ramaddr),
-    .\ccif.ramstore (ccif.ramstore)
+    .\cif.dWEN (ccif.dWEN),
+    .\cif.dREN (ccif.dREN),
+    .\cif.dload (ccif.dload),
+    .\cif.dwait (ccif.dwait),
+    .\cif.daddr (ccif.daddr),
+    .\cif.dstore (ccif.dstore),
+    .\cif.iload (ccif.iload),
+    .\cif.iREN (ccif.iREN),
+    .\cif.iaddr (ccif.iaddr),
+    .\cif.iwait (ccif.iwait),
+    .\cif.ramWEN (ccif.ramWEN),
+    .\cif.ramREN (ccif.ramREN),
+    .\cif.ramaddr (ccif.ramaddr),
+    .\cif.ramstore (ccif.ramstore)
   );
- ram RAM (
+
+  
+ ram RAMM (
     .\ramif.ramstore (ramif.ramstore),
     .\ramif.ramaddr (ramif.ramaddr),
     .\ramif.ramREN (ramif.ramREN),
     .\ramif.ramWEN (ramif.ramWEN),
     .\ramif.ramload (ramif.ramload),
     .\ramif.ramstate (ramif.ramstate)
-	); 
+	);  
 `endif
 endmodule
 
