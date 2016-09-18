@@ -4,6 +4,7 @@ add wave -noupdate /system_tb/CLK
 add wave -noupdate /system_tb/nRST
 add wave -noupdate /system_tb/DUT/CPU/halt
 add wave -noupdate /system_tb/DUT/CPU/DP/cuif/cpu_halt
+add wave -noupdate /system_tb/DUT/CPU/DP/PROGRAM_COUNTER/current_pc
 add wave -noupdate -divider INSTRUCTION
 add wave -noupdate /system_tb/DUT/CPU/DP/cuif/imemload
 add wave -noupdate /system_tb/DUT/CPU/DP/cuif/dWEN
@@ -27,13 +28,13 @@ add wave -noupdate -divider Registers
 add wave -noupdate /system_tb/DUT/CPU/DP/RF/rfif/rdat1
 add wave -noupdate -radix decimal /system_tb/DUT/CPU/DP/RF/rfif/rsel1
 add wave -noupdate /system_tb/DUT/CPU/DP/RF/rfif/wdat
-add wave -noupdate /system_tb/DUT/CPU/DP/RF/register
 add wave -noupdate /system_tb/DUT/CPU/DP/CF/cuif/WEN
-add wave -noupdate /system_tb/DUT/CPU/DP/CF/cuif/wsel
+add wave -noupdate -radix decimal /system_tb/DUT/CPU/DP/CF/cuif/wsel
+add wave -noupdate /system_tb/DUT/CPU/DP/RF/register
 add wave -noupdate -divider Controls
 add wave -noupdate /system_tb/DUT/CPU/DP/CF/cuif/alusrc
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {37963 ps} 0}
+WaveRestoreCursors {{Cursor 1} {22391266642 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 150
 configure wave -valuecolwidth 100
@@ -49,4 +50,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ps} {84004 ps}
+WaveRestoreZoom {0 ps} {1194320274 ns}
