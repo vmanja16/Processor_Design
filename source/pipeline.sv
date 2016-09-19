@@ -2,12 +2,12 @@
   Eric Villasenor
   evillase@gmail.com
 
-  single cycle top block
+  pipeline top block
   holds data path components
   and cache level
 */
 
-module singlecycle (
+module pipeline (
   input logic CLK, nRST,
   output logic halt,
   cpu_ram_if.cpu scif
