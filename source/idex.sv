@@ -1,10 +1,10 @@
 `include "cpu_types_pkg.vh"
 import cpu_types_pkg::*;
 
-`include "ifid_if.vh"
+`include "idex_if.vh"
 
 
-module ifid (input CLK, nRST, idex_if.ed idexif);
+module idex (input CLK, nRST, idex_if.ed idexif);
 /*
   // idex ports
   modport id (
@@ -34,7 +34,7 @@ module ifid (input CLK, nRST, idex_if.ed idexif);
        idexif.lui_word_out <= 0;
        idexif.pc_select_out <= NEXT;
     end
-    else if (ifidif.ifid_enable) begin
+    else if (idexif.enable) begin
       idexif.imemload_out <= idexif.imemload_in;
       idexif.npc_out      <= idexif.npc_in;
       idexif.rdat1_out    <= idexif.rdat1_in;
