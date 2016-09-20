@@ -4,7 +4,7 @@ import cpu_types_pkg::*;
 `include "idex_if.vh"
 
 
-module idex (input CLK, nRST, idex_if.ed idexif);
+module idex (input CLK, nRST, idex_if.id idexif);
 /*
   // idex ports
   modport id (
@@ -44,12 +44,12 @@ module idex (input CLK, nRST, idex_if.ed idexif);
        idexif.aluop_out      <= idexif.aluop_in;
        idexif.dREN_out         <= idexif.dREN_in;
        idexif.dWEN_out        <= idexif.dWEN_in;
-       idexif.halt_out        <= idexif_halt_in;
+       idexif.halt_out        <= idexif.halt_in;
        idexif.wdatsel_out    <= idexif.wdatsel_in;
        idexif.wsel_out       <= idexif.wsel_in;
-       idexif.WEN_out       <= idexif_WEN_in;
-       idexif.lui_word_out <=  idexif_lui_word_in;
-       idexif.pc_select_out <= pc_select_in;
+       idexif.WEN_out       <= idexif.WEN_in;
+       idexif.lui_word_out <=  idexif.lui_word_in;
+       idexif.pc_select_out <= idexif.pc_select_in;
     end
 
   end // end always_ff

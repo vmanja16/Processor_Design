@@ -36,23 +36,20 @@ interface exmem_if;
   word_t port_o_out;
   logic z_fl_out;
 
-// data outputs
-  word_t dmemaddr, dmemstore;
-
 
   // exmem ports
   modport ex (
     input     enable, flush, imemload_in, npc_in, rdat1_in, rdat2_in, lui_word_in, wdatsel_in, wsel_in, pc_select_in, 
               dREN_in, dWEN_in, halt_in, WEN_in, port_o_in, z_fl_in,
     output    imemload_out, npc_out, rdat1_out, rdat2_out, lui_word_out, wdatsel_out, wsel_out, pc_select_out, 
-              dREN_out, dWEN_out, halt_out, WEN_out, wdatsel_out, port_o_out, z_fl_out, dmemaddr, dmemstore
+              dREN_out, dWEN_out, halt_out, WEN_out, port_o_out, z_fl_out
   );
   //  tb
   modport tb (
     input     imemload_out, npc_out, rdat1_out, rdat2_out, lui_word_out, wdatsel_out, wsel_out, pc_select_out, 
-              dREN_out, dWEN_out, halt_out, WEN_out, wdatsel_out, port_o_out, z_fl_out, dmemaddr, dmemstore,
+              dREN_out, dWEN_out, halt_out, WEN_out, port_o_out, z_fl_out,
     output    enable, flush, imemload_in, npc_in, rdat1_in, rdat2_in, lui_word_in, wdatsel_in, wsel_in, pc_select_in, 
-              dREN_in, dWEN_in, halt_in, WEN_in, port_o_in, z_fl_in;
+              dREN_in, dWEN_in, halt_in, WEN_in, port_o_in, z_fl_in
   );
 endinterface
 

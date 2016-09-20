@@ -4,7 +4,7 @@ import cpu_types_pkg::*;
 `include "exmem_if.vh"
 
 
-module exmem (input CLK, nRST, exmem_if.ex exmemif)
+module exmem (input CLK, nRST, exmem_if.ex exmemif);
 /*
    // exmem ports
   modport ex (
@@ -18,19 +18,17 @@ module exmem (input CLK, nRST, exmem_if.ex exmemif)
   always_ff @ (posedge CLK, negedge nRST) begin
     if (nRST==0 || exmemif.flush) begin
       exmemif.imemload_out <= 0; // 0 on nRST
-      exmemif.npc_out  <= 0; // 0 on nRST
-       exmemif.rdat1_out <=0;
-       exmemif.rdat2_out <=0;
+      exmemif.npc_out      <= 0; // 0 on nRST
+       exmemif.rdat1_out   <=0;
+       exmemif.rdat2_out   <=0;
        exmemif.wdatsel_out <=0;
-       exmemif.wsel_out <= 0;
-       exmemif.WEN_out <=0;
-       exmemif.dREN_out <= 0;
-       exmemif.dWEN_out <= 0;
-       exmemif.halt_out <= 0;
-       exmemif.port_o_out <= 0;
-       exmemif.z_fl_out <=0;
-       dmemaddr <=0;
-       dmemstore <=0;
+       exmemif.wsel_out    <= 0;
+       exmemif.WEN_out     <=0;
+       exmemif.dREN_out    <= 0;
+       exmemif.dWEN_out    <= 0;
+       exmemif.halt_out    <= 0;
+       exmemif.port_o_out  <= 0;
+       exmemif.z_fl_out    <=0;
        exmemif.lui_word_out <= PORT_O;
        exmemif.pc_select_out <= NEXT;
        
@@ -49,10 +47,8 @@ module exmem (input CLK, nRST, exmem_if.ex exmemif)
        exmemif.halt_out <= exmemif.halt_in;
        exmemif.port_o_out <= exmemif.port_o_in;
        exmemif.z_fl_out <=0;
-       dmemaddr <= exmemif.port_o_in;
-       dmemstore <=exmemif.rdat2_in;
        exmemif.lui_word_out <= exmemif.lui_word_in;
-       exmemif.pc_select_out <= pc_select_in;
+       exmemif.pc_select_out <= exmemif.pc_select_in;
     end
      
 

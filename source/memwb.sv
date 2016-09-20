@@ -1,10 +1,10 @@
-`include "cpu_types_pkg"
+`include "cpu_types_pkg.vh"
 import cpu_types_pkg::*;
 
 `include "memwb_if.vh"
 
 
-module memwb (input CLK, negedge nRST, memwb_if.mem memwbif);
+module memwb (input CLK, nRST, memwb_if.mem memwbif);
   
   always_ff @ (posedge CLK, negedge nRST) begin
     if (nRST==0 || memwbif.flush) begin
