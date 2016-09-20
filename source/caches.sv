@@ -12,6 +12,7 @@
 
 // cpu types
 `include "cpu_types_pkg.vh"
+import cpu_types_pkg::*;
 
 module caches (
   input logic CLK, nRST,
