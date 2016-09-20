@@ -70,7 +70,8 @@ module datapath (
 // internals
   r_t instr;
   assign instr = ifidif.imemload; 
-  assign pc4   = pcif.rtn_addr; // ret_addr is currPC + 4
+  assign pc4   = pcif.rtn_addr; // =is currPC + 4
+  
 // DATHAPATH OUTPUTS
 
 // didn't make sense because it's the metastable cpu_halt!
@@ -90,18 +91,42 @@ assign dpif.dmemaddr  = exmemif.port_o;
 
 // PC inputs
 
-// REQUEST_UNIT inputs
 
-// ALU inputs
+// ======== FETCH ================= //
+  // IFID inputs
+assign ifidif.ifid_enable = dpif.ihit;
+assign ifidif.iload       = dpif.imemload;
+    // flush
+assign npc_in             = pc4;
+
+// ======== DECODE ================= //
+ 
+  // Register file read inputs
+assign rfif.rsel1 = instr.rs;
+assign rfif.rsel2 = cuif.rsel2;
+  // control_unit inputs    
+assign cuif.imemload = ifidif.imemload;
+  // IDEX inputs
+assign idexif.idex_enable = (dpif.dhit || dpif.ihit); 
+assign idexif.rdat1_in    = rfif.rdat1;
+assign idexif.rdat2_in    = rfif.rdat2;
+assign idexif.aluop_in    = cuif.aluop;
+assign idexif.alusrc_in   = cuif.alusrc;
+
+// ======== EXECUTE ================= //
+   // ALU inputs
 assign al.alu_op = idexif.aluop;
 assign al.port_a = idexif.rdat1;
 assign al.port_b = (idexif.alusrc) ? idexif.immediate : idexif.rdat2;
+  // EXMEM inputs
+assign idexif.exmem_enable = (dpif.dhit || dpif.ihit); // halt?
+assign exmemif.port_o_in = al.port_o; 
 
-/* REGISTER_FILE inputs   */
- // reads
-assign rfif.rsel1 = instr.rs;
-assign rfif.rsel2 = cuif.rsel2;
- // writes
+// ======== MEMORY =================== //
+  // MEMWB inputs
+assign idexif.memwb_enable = (dpif.dhit || dpif.ihit); // halt?
+
+// ======== WRITEBACK ================ //
 assign rfif.WEN   = memwbif.WEN;
   // rfif.wsel (MUX);
 always_comb begin
@@ -114,24 +139,12 @@ always_comb begin
   endcase
 end //end always_comb   
 
-/*   CONTROL_UNIT inputs    */
-assign cuif.imemload = ifidif.imemload;
 
-// IFID inputs
-assign ifidif.ifid_enable = dpif.ihit;
-assign ifidif.iload       = dpif.imemload;
-  // flush
-assign npc_in             = pc4;
 
-// IDEX inputs
-assign idexif.idex_enable = (dpif.dhit || dpif.ihit); 
 
-// EXMEM inputs
-assign idexif.exmem_enable = (dpif.dhit || dpif.ihit); // halt?
-assign exmemif.port_o_in = al.port_o;
 
-// MEMWB inputs
-assign idexif.memwb_enable = (dpif.dhit || dpif.ihit); // halt?
+
+
 
 
 

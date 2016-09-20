@@ -9,15 +9,18 @@ module control_unit(input CLK, nRST, control_unit_if.cu cuif);
  
 /*modport cu (
   input   imemload, rdat2, port_o, z_fl,
-  output  cpu_halt, datomic, dREN, dWEN, dmemaddr, 
-  dmemstore, alusrc, wdatsel, WEN, wsel, rsel1, rsel2, 
-  pc_select, jump_data, immediate, lui_word, aluop
+  output  
+  cpu_halt, dREN, dWEN,  
+  wdatsel, WEN, wsel, 
+  pc_select, lui_word, 
+  aluop, immediate, alusrc
   ); 
 */
 
 // op    rs rt ---immediate-- 
 // op    ----jump_address----
 // op=0  rs rt rd shamt funct
+
 // internals
 r_t instr; r_t r_instr; i_t i_instr; word_t zero_extended_immediate, sign_extended_immediate, extended_shamt;
 
@@ -32,10 +35,12 @@ assign extended_shamt = {27'h0, r_instr.shamt};
 assign cuif.lui_word  = { cuif.imemload[15:0], 16'h0 }; // left shifted word
 assign cuif.dWEN      = (instr.opcode == SW) ? 1 : 0; // assert DWEN on SW only
 assign cuif.dREN      = (instr.opcode == LW) ? 1 : 0; // assert dREN on LW only
-assign cuif.dmemaddr  = cuif.port_o; // addr is an ALU sum for SW/LW
-assign cuif.dmemstore = cuif.rdat2; // for SW, dmemstore is a register value
+//assign cuif.dmemaddr  = cuif.port_o; // addr is an ALU sum for SW/LW
+//assign cuif.dmemstore = cuif.rdat2; // for SW, dmemstore is a register value
 assign cuif.cpu_halt  = (instr.opcode == HALT) ? 1 : 0;
+
 always_comb begin
+
 // DEFAULTS
 cuif.pc_select = NEXT; // overwritten on BNE BEQ J JAL JR HALT
 cuif.jump_data = cuif.imemload; // overwritten for JR 
@@ -43,11 +48,10 @@ cuif.immediate = sign_extended_immediate; // overwritten on XORI ORI ANDI SLL SR
 cuif.aluop = ALU_ADD; // not overwritten on J, JAL, JR, LUI
 cuif.wdatsel = PORT_O; // overwritten on LUI, JAL, LW
 cuif.WEN  = 0; // not overwritten JR, branches, SW 
-
 cuif.wsel = i_instr.rt; // overwritten on JAL, RTYPE
 
-cuif.rsel1 = i_instr.rs; // always
-cuif.rsel2 = i_instr.rt; // is rs on JR
+//cuif.rsel1 = i_instr.rs; // always
+//cuif.rsel2 = i_instr.rt; // is rs on JR
 cuif.alusrc = 0; // 1 for immediates, 0 for rdat2
 // OPCODES
 casez(instr.opcode)
@@ -137,7 +141,7 @@ casez(instr.opcode)
 /*
   RTYPE: begin
     cuif.rsel1 = r_instr.rs;
-    cuif.rsel2 = r_instr.rt;
+ //   cuif.rsel2 = r_instr.rt;
     cuif.wsel = r_instr.rd;
     cuif.WEN = 1; // NOT for JR!
     casez(r_instr.funct)
@@ -153,8 +157,8 @@ casez(instr.opcode)
       end
       JR: begin
         cuif.pc_select = JUMPREGISTER;
-        cuif.rsel2     = r_instr.rs;
-        cuif.jump_data = cuif.rdat2;
+   //     cuif.rsel2     = r_instr.rs; JUST USE RDAT1
+   //     cuif.jump_data = cuif.rdat2;    ^
         // No aluop
         cuif.WEN = 0; 
       end

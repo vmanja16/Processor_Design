@@ -14,18 +14,19 @@ interface ifid_if;
   // import types
   import cpu_types_pkg::*;
   
-  word_t    iload, imemload, npc_in, npc_out;
-  logic ifid_enable, ifid_flush;
+  word_t  imemload_in,imemload_out;
+  word_t  npc_in, npc_out;
+  logic enable, flush;
 
   // ifid ports
   modport ifid (
-    input   iload, npc_in, ifid_enable, ifid_flush,
-    output  imemload, npc_out
+    input   imemload_in, npc_in, enable, flush,
+    output  imemload_out, npc_out
   );
   //  tb
   modport tb (
-    input   imemload, npc_out,
-    output  iload, npc_in, ifid_enable, ifid_flush,
+    input   imemload_out, npc_out,
+    output  imemload_in, npc_in, enable, flush
   );
 endinterface
 
