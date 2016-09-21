@@ -1,4 +1,4 @@
-/*
+  /*
   Vikram Manja
   vmanja@purdue.edu
 
@@ -88,7 +88,7 @@ assign pcif.ihit     = dpif.ihit;
 assign ifidif.enable            = dpif.ihit;
 assign ifidif.imemload_in       = dpif.imemload;
 assign ifidif.npc_in            = pc4;
-assign ifidif.flush             = !dpif.ihit; //TEMP (SET LATER)
+assign ifidif.flush             = dpif.dhit; //TEMP (SET LATER)
 
 
 // ======== DECODE ================= //
