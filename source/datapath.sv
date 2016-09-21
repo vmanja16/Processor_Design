@@ -68,30 +68,27 @@ module datapath (
  //            dmemstore, dmemaddr
 
 // internals
-  r_t instr;
+  r_t instr; word_t next_pc, current_pc, pc4;
   assign instr = ifidif.imemload_out; 
   assign pc4   = pcif.rtn_addr; // =is currPC + 4
-  
-// DATHAPATH OUTPUTS
+  assign current_pc = pcif.imemaddr;
 
-// didn't make sense because it's the metastable cpu_halt!
-//always_ff @ (posedge CLK, negedge nRST) begin
-//  if (nRST == 0) dpif.halt <= 0;
-//  else if(cuif.cpu_halt) dpif.halt <=1;
-//end // end always_ff
+always_ff @ (posedge CLK, negedge nRST) begin
+  if (nRST == 0) dpif.halt <= 0;
+  else if(memwbif.halt_out) dpif.halt <=1;
+end // end always_ff
 
 //assign dpif.halt      = cuif.cpu_halt; // not sure here
 
 
-// PC inputs
-
-
 // ======== FETCH ================= //
+assign dpif.imemaddr = pcif.imemaddr;
+assign pcif.ihit     = dpif.ihit;
   // IFID inputs
 assign ifidif.enable            = dpif.ihit;
 assign ifidif.imemload_in       = dpif.imemload;
 assign ifidif.npc_in            = pc4;
-assign ifidif.flush             = 0; //TEMP (SET LATER)
+assign ifidif.flush             = !dpif.ihit; //TEMP (SET LATER)
 
 
 // ======== DECODE ================= //
@@ -105,27 +102,24 @@ assign cuif.imemload = ifidif.imemload_out;
 
 // IDEX inputs
 assign idexif.enable = (dpif.dhit || dpif.ihit); 
-assign idexif.rdat1_in    = rfif.rdat1;
-assign idexif.rdat2_in    = rfif.rdat2;
-assign idexif.aluop_in    = cuif.aluop;
-assign idexif.alusrc_in   = cuif.alusrc;
+assign idexif.rdat1_in     = rfif.rdat1;
+assign idexif.rdat2_in     = rfif.rdat2;
+assign idexif.aluop_in     = cuif.aluop;
+assign idexif.alusrc_in    = cuif.alusrc;
 assign idexif.immediate_in = cuif.immediate;
-assign idexif.dREN_in =      cuif.dREN;
-assign idexif.dWEN_in =      cuif.dWEN;
-assign idexif.halt_in =      cuif.halt;
-assign idexif.wdatsel_in =   cuif.wdatsel;
-assign idexif.wsel_in =      cuif.wsel;
-assign idexif.WEN_in =       cuif.WEN;
-assign idexif.lui_word_in =  cuif.lui_word;
+assign idexif.dREN_in      = cuif.dREN;
+assign idexif.dWEN_in      = cuif.dWEN;
+assign idexif.halt_in      = cuif.cpu_halt;
+assign idexif.wdatsel_in   = cuif.wdatsel;
+assign idexif.wsel_in      = cuif.wsel;
+assign idexif.WEN_in       = cuif.WEN;
+assign idexif.lui_word_in  = cuif.lui_word;
 assign idexif.pc_select_in = cuif.pc_select;
-assign idexif.flush             = 0; //TEMP (SET LATER)
+assign idexif.flush        = 0; //TEMP (SET LATER)
 
 //Passed from IFID latch
-assign idexif.npc_in =       ifidif.npc_out;
+assign idexif.npc_in      =       ifidif.npc_out;
 assign idexif.imemload_in =  ifidif.imemload_out;
-
-
-
 
 
 // ======== EXECUTE ================= //
@@ -135,85 +129,76 @@ assign al.port_a = idexif.rdat1_out;
 assign al.port_b = (idexif.alusrc_out) ? idexif.immediate_out : idexif.rdat2_out;
 
 // EXMEM inputs
-assign exmemif.enable = (dpif.dhit || dpif.ihit); // halt?
-assign exmemif.flush             = 0; //TEMP (SET LATER)
+assign exmemif.enable    = (dpif.dhit || dpif.ihit); // halt?
+assign exmemif.flush     = 0; //TEMP (SET LATER)
 assign exmemif.port_o_in = al.port_o; 
-assign exmemif.z_fl_in = al.z_fl;
+assign exmemif.z_fl_in   = al.z_fl;
 
 //Passed from IDEX latch
-assign exmemif.dREN_in = idexif.dREN_out;
-assign exmemif.dWEN_in = idexif.dWEN_out;
-assign exmemif.halt_in = idexif.halt_out;
-assign exmemif.wdatsel_in = idexif.wdatsel_out;
-assign exmemif.wsel_in = idexif.wsel_out;
-assign exmemif.WEN_in = idexif.WEN_out;
-assign exmemif.lui_word_in = idexif.lui_word_out;
+assign exmemif.dREN_in      = idexif.dREN_out;
+assign exmemif.dWEN_in      = idexif.dWEN_out;
+assign exmemif.halt_in      = idexif.halt_out;
+assign exmemif.wdatsel_in   = idexif.wdatsel_out;
+assign exmemif.wsel_in      = idexif.wsel_out;
+assign exmemif.WEN_in       = idexif.WEN_out;
+assign exmemif.lui_word_in  = idexif.lui_word_out;
 assign exmemif.pc_select_in = idexif.pc_select_out;
-assign exmemif.npc_in = idexif.npc_out;
-assign exmemif.imemload_in = idexif.imemload_out;
+assign exmemif.npc_in       = idexif.npc_out;
+assign exmemif.imemload_in  = idexif.imemload_out;
+assign exmemif.rdat2_in     = idexif.rdat2_out;
 
 
 
 
 // ======== MEMORY =================== //
   // MEMWB inputs
-assign memwbif.enable = (dpif.dhit || dpif.ihit); // halt?
-assign memwbif.flush             = 0; //TEMP (SET LATER)
+assign memwbif.enable      = (dpif.dhit || dpif.ihit); // halt?
+assign memwbif.flush       = 0; //TEMP (SET LATER)
 assign memwbif.dmemload_in = dpif.dmemload;
 
 //Passed from EXMEM latch
 assign memwbif.halt_in     = exmemif.halt_out;
-assign memwbif.wdatsel_in     = exmemif._wdatselout;
+assign memwbif.wdatsel_in  = exmemif.wdatsel_out;
 assign memwbif.wsel_in     = exmemif.wsel_out;
-assign memwbif.WEN_in     = exmemif.WEN_out;
-assign memwbif.lui_word_in     = exmemif.lui_word_out;
-assign memwbif.port_o_in     = exmemif.port_o_out;
-assign memwbif.npc_in     = exmemif.npc_out;
+assign memwbif.WEN_in      = exmemif.WEN_out;
+assign memwbif.lui_word_in = exmemif.lui_word_out;
+assign memwbif.port_o_in   = exmemif.port_o_out;
+assign memwbif.npc_in      = exmemif.npc_out;
 
-//Datapath (cache) assignments
+// Dcache assignments
 assign dpif.imemREN   = 1;
 assign dpif.dmemREN   = exmemif.dREN_out;
 assign dpif.dmemWEN   = exmemif.dWEN_out;
-assign dpif.imemaddr  = pcif.imemaddr;
 assign dpif.datomic   = 0; // what is this?
-assign dpif.dmemstore = exmemif.rdat2;
-assign dpif.dmemaddr  = exmemif.port_o;
+assign dpif.dmemstore = exmemif.rdat2_out;
+assign dpif.dmemaddr  = exmemif.port_o_out;
 
+/*
 //Next PC logic
 always_comb begin
-  casez(exmemif.pc_select_out)
-    JUMP:
-    JUMPREGISTER:
-    BRANCH:
-    PC_HALT:
-    NEXT:
+  casez (exmemif.pc_select_out)
+    PC_HALT:      next_pc = current_pc;
+    NEXT:         next_pc = current_pc + 32'h4; // standard
+    default:      next_pc = current_pc + 32'h4; // standard case
   endcase
-end
-
-
+end // end always_comb
+*/
 
 
 // ======== WRITEBACK ================ //
-assign rfif.WEN   = memwbif.WEN;
-  // rfif.wsel (MUX);
+
+  // Register File Writes
+assign rfif.WEN   = memwbif.WEN_out;
+assign rfif.wsel  = memwbif.wsel_out;
+
 always_comb begin
-  casez(memwbif.wdatsel)
-    DMEMLOAD: rfif.wdat = memwbif.dmemload;
-    LUI_WORD: rfif.wdat = memwbif.lui_word;
-    RTN_ADDR: rfif.wdat = memwbif.rtn_addr;
-    PORT_O:   rfif.wdat = memwbif.al.port_o;
+  casez(memwbif.wdatsel_out)
+    DMEMLOAD: rfif.wdat = memwbif.dmemload_out;
+    LUI_WORD: rfif.wdat = memwbif.lui_word_out;
+    RTN_ADDR: rfif.wdat = memwbif.npc_out;
+    PORT_O:   rfif.wdat = memwbif.port_o_out;
     default:  rfif.wdat = 32'h0;
   endcase
 end //end always_comb   
-
-
-
-
-
-
-
-
-
-
 
 endmodule

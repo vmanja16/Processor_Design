@@ -8,7 +8,7 @@ import cpu_types_pkg::*;
 module control_unit(input CLK, nRST, control_unit_if.cu cuif);
  
 /*modport cu (
-  input   imemload, rdat2, port_o, z_fl,
+  input   imemload
   output  
   cpu_halt, dREN, dWEN,  
   wdatsel, WEN, wsel, 
@@ -35,8 +35,6 @@ assign extended_shamt = {27'h0, r_instr.shamt};
 assign cuif.lui_word  = { cuif.imemload[15:0], 16'h0 }; // left shifted word
 assign cuif.dWEN      = (instr.opcode == SW) ? 1 : 0; // assert DWEN on SW only
 assign cuif.dREN      = (instr.opcode == LW) ? 1 : 0; // assert dREN on LW only
-//assign cuif.dmemaddr  = cuif.port_o; // addr is an ALU sum for SW/LW
-//assign cuif.dmemstore = cuif.rdat2; // for SW, dmemstore is a register value
 assign cuif.cpu_halt  = (instr.opcode == HALT) ? 1 : 0;
 
 always_comb begin
@@ -49,9 +47,6 @@ cuif.aluop = ALU_ADD; // not overwritten on J, JAL, JR, LUI
 cuif.wdatsel = PORT_O; // overwritten on LUI, JAL, LW
 cuif.WEN  = 0; // not overwritten JR, branches, SW 
 cuif.wsel = i_instr.rt; // overwritten on JAL, RTYPE
-
-//cuif.rsel1 = i_instr.rs; // always
-//cuif.rsel2 = i_instr.rt; // is rs on JR
 cuif.alusrc = 0; // 1 for immediates, 0 for rdat2
 // OPCODES
 casez(instr.opcode)

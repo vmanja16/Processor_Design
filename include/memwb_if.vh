@@ -10,7 +10,7 @@
 // all types
 `include "cpu_types_pkg.vh"
 
-interface exmem_if;
+interface memwb_if;
   // import types
   import cpu_types_pkg::*;
 

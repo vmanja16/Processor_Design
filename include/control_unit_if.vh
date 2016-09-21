@@ -21,7 +21,7 @@ interface control_unit_if;
 
 // Muxes  
   logic alusrc; // lower mux
-  logic [1:0] wdatsel; // wdat mux
+  wdatselect_t wdatsel; // wdat mux
 
 // register
   logic WEN;

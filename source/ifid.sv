@@ -21,7 +21,7 @@ module ifid (input CLK, nRST, ifid_if.ifid ifidif);
       ifidif.imemload_out <= 0; // 0 on flush
       ifidif.npc_out      <= 0; // 0 on flush
     end
-    else if (ifidif.ifid_enable) begin
+    else if (ifidif.enable) begin
       ifidif.imemload_out <= ifidif.imemload_in; // update instruction
       ifidif.npc_out      <= ifidif.npc_in; // update next_pc
     end

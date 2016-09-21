@@ -24,7 +24,7 @@ module idex (input CLK, nRST, idex_if.id idexif);
       idexif.rdat2_out    <= 0;
        idexif.immediate_out <= 0;
        idexif.alusrc_out    <=0;
-       idexif.aluop_out      <= 0;
+       idexif.aluop_out      <= ALU_ADD;
        idexif.dREN_out         <=0;
        idexif.dWEN_out        <=0;
        idexif.halt_out         <=0;
@@ -35,21 +35,21 @@ module idex (input CLK, nRST, idex_if.id idexif);
        idexif.pc_select_out <= NEXT;
     end
     else if (idexif.enable) begin
-      idexif.imemload_out <= idexif.imemload_in;
-      idexif.npc_out      <= idexif.npc_in;
-      idexif.rdat1_out    <= idexif.rdat1_in;
-      idexif.rdat2_out    <= idexif.rdat2_in;
-       idexif.immediate_out <= idexif.immediate_in;
-       idexif.alusrc_out    <= idexif.alusrc_out;
-       idexif.aluop_out      <= idexif.aluop_in;
-       idexif.dREN_out         <= idexif.dREN_in;
-       idexif.dWEN_out        <= idexif.dWEN_in;
-       idexif.halt_out        <= idexif.halt_in;
-       idexif.wdatsel_out    <= idexif.wdatsel_in;
-       idexif.wsel_out       <= idexif.wsel_in;
-       idexif.WEN_out       <= idexif.WEN_in;
-       idexif.lui_word_out <=  idexif.lui_word_in;
-       idexif.pc_select_out <= idexif.pc_select_in;
+      idexif.imemload_out  <= idexif.imemload_in;
+      idexif.npc_out       <= idexif.npc_in;
+      idexif.rdat1_out     <= idexif.rdat1_in;
+      idexif.rdat2_out     <= idexif.rdat2_in;
+      idexif.immediate_out <= idexif.immediate_in;
+      idexif.alusrc_out    <= idexif.alusrc_in;
+      idexif.aluop_out     <= idexif.aluop_in;
+      idexif.dREN_out      <= idexif.dREN_in;
+      idexif.dWEN_out      <= idexif.dWEN_in;
+      idexif.halt_out      <= idexif.halt_in;
+      idexif.wdatsel_out   <= idexif.wdatsel_in;
+      idexif.wsel_out      <= idexif.wsel_in;
+      idexif.WEN_out       <= idexif.WEN_in;
+      idexif.lui_word_out  <=  idexif.lui_word_in;
+      idexif.pc_select_out <= idexif.pc_select_in;
     end
 
   end // end always_ff

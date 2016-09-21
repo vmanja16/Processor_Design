@@ -22,4 +22,18 @@ module memory_control (
   // number of cpus for cc
   parameter CPUS = 2;
 
+  // CACHE outputs
+assign ccif.dload = ccif.ramload;
+assign ccif.iload = ccif.ramload;
+// modified the assignment below
+assign ccif.iwait = ~((ccif.ramstate == ACCESS) && !(ccif.dWEN||ccif.dREN));
+assign ccif.dwait = ~((ccif.ramstate == ACCESS) && (ccif.dREN||ccif.dWEN));
+
+// RAM outputs
+assign ccif.ramWEN   = ccif.dWEN;
+assign ccif.ramREN   = (ccif.dWEN) ? 1'b0 : (ccif.iREN|ccif.dREN);
+assign ccif.ramstore = ccif.dstore;
+assign ccif.ramaddr  = (ccif.dREN||ccif.dWEN) ? ccif.daddr : ccif.iaddr;
+
+
 endmodule
