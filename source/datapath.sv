@@ -18,6 +18,7 @@
 `include "idex_if.vh"
 `include "exmem_if.vh"
 `include "memwb_if.vh"
+`include "hazard_if.vh"
 
 // alu op, mips op, and instruction type
 `include "cpu_types_pkg.vh"
@@ -37,12 +38,13 @@ module datapath (
   register_file_if rfif();
   control_unit_if cuif();
   pc_if pcif();
-
+  
   ifid_if ifidif();
   idex_if idexif();
   exmem_if exmemif();
   memwb_if memwbif();
 
+  hazard_if hazif();
 // Map Modules
 
   // Map ALU
@@ -61,7 +63,8 @@ module datapath (
   exmem EXMEM (CLK, nRST, exmemif);
   // Map MEMWB 
   memwb MEMWB (CLK, nRST, memwbif);
-
+  // Map Hazard
+  hazard HU (CLK, nRST, hazif);
 //dpif IO
  //   input   ihit, imemload, dhit, dmemload,
  //   output  halt, imemREN, imemaddr, dmemREN, dmemWEN, datomic,
@@ -79,6 +82,24 @@ always_ff @ (posedge CLK, negedge nRST) begin
 end // end always_ff
 
 //assign dpif.halt      = cuif.cpu_halt; // not sure here
+
+// ================HAZARDS!=============== //
+/*
+    output  hazard, rdat1_in, rdat2_out
+*/
+assign hazif.ihit = dpif.ihit;
+assign hazif.dhit = dpif.dhit;
+assign hazif.exmem_WEN    = exmemif.WEN_out;
+assign hazif.exmem_wsel   = exmemif.wsel_out;
+assign hazif.exmem_port_o = exmemif.port_o_out;
+assign hazif.memwb_WEN    = memwbif.WEN_out;
+assign hazif.memwb_wsel   = memwbif.wsel_out;
+assign hazif.rfif_wdat    = rfif.wdat;
+assign hazif.imemload     = idexif.imemload_out;
+assign hazif.rdat1_in     = idexif.rdat1_out;
+assign hazif.rdat2_in     = idexif.rdat2_out;
+
+
 
 
 // ======== FETCH ================= //
@@ -125,8 +146,8 @@ assign idexif.imemload_in =  ifidif.imemload_out;
 // ======== EXECUTE ================= //
    // ALU inputs
 assign al.alu_op = idexif.aluop_out;
-assign al.port_a = idexif.rdat1_out;
-assign al.port_b = (idexif.alusrc_out) ? idexif.immediate_out : idexif.rdat2_out;
+assign al.port_a = hazif.rdat1_out;
+assign al.port_b = (idexif.alusrc_out) ? idexif.immediate_out : hazif.rdat2_out;
 
 // EXMEM inputs
 assign exmemif.enable    = (dpif.dhit || dpif.ihit); // halt?
@@ -145,8 +166,8 @@ assign exmemif.lui_word_in  = idexif.lui_word_out;
 assign exmemif.pc_select_in = idexif.pc_select_out;
 assign exmemif.npc_in       = idexif.npc_out;
 assign exmemif.imemload_in  = idexif.imemload_out;
-assign exmemif.rdat2_in     = idexif.rdat2_out;
-
+assign exmemif.rdat1_in     = hazif.rdat1_out;
+assign exmemif.rdat2_in     = hazif.rdat2_out;
 
 
 

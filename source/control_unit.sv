@@ -51,7 +51,7 @@ cuif.alusrc = 0; // 1 for immediates, 0 for rdat2
 // OPCODES
 casez(instr.opcode)
 //================= J-TYPE!============================= 
-/*  
+  
   J: begin 
     cuif.pc_select = JUMP;
     // No aluop
@@ -99,23 +99,25 @@ casez(instr.opcode)
     cuif.alusrc = 1;
     cuif.WEN       = 1;
   end
-*/   
+  
   ORI: begin 
     cuif.immediate = zero_extended_immediate;
     cuif.aluop     = ALU_OR;
     cuif.alusrc =1;
     cuif.WEN = 1;
   end 
-/*  XORI: begin   
+  XORI: begin   
     cuif.immediate = zero_extended_immediate;
     cuif.aluop     = ALU_XOR;
     cuif.alusrc = 1;
     cuif.WEN = 1;
-  end
-*/  
+  end  
   LUI:  begin 
     cuif.WEN     = 1;
     cuif.wdatsel = LUI_WORD;
+    cuif.aluop   = ALU_ADD;
+    cuif.alusrc  = 1;
+    cuif.immediate = cuif.lui_word;
     // No aluop
   end
   LW: begin 
@@ -133,7 +135,7 @@ casez(instr.opcode)
     // No aluop
     end
 //================= R-TYPE! =================================
-/*
+
   RTYPE: begin
     cuif.rsel1 = r_instr.rs;
  //   cuif.rsel2 = r_instr.rt;
@@ -204,7 +206,7 @@ casez(instr.opcode)
       end
     endcase // end funct case
   end // end R-type struct
-*/  default: begin
+  default: begin
     cuif.WEN=0;
   end
   endcase  // end opcode case
