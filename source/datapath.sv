@@ -18,8 +18,8 @@
 `include "idex_if.vh"
 `include "exmem_if.vh"
 `include "memwb_if.vh"
-`include "hazard_if.vh"
-
+`include "hazard_unit_if.vh"
+`include "forwarding_unit_if.vh"
 // alu op, mips op, and instruction type
 `include "cpu_types_pkg.vh"
 
@@ -44,7 +44,8 @@ module datapath (
   exmem_if exmemif();
   memwb_if memwbif();
 
-  hazard_if hazif();
+  hazard_unit_if huif();
+  forwarding_unit_if fuif();
 // Map Modules
 
   // Map ALU
@@ -64,7 +65,10 @@ module datapath (
   // Map MEMWB 
   memwb MEMWB (CLK, nRST, memwbif);
   // Map Hazard
-  hazard HU (CLK, nRST, hazif);
+  hazard_unit HU (CLK, nRST, huif);
+  // Map Forwarding Unit
+  forwarding_unit FU (CLK, nRST, fuif);
+
 //dpif IO
  //   input   ihit, imemload, dhit, dmemload,
  //   output  halt, imemREN, imemaddr, dmemREN, dmemWEN, datomic,
@@ -81,35 +85,42 @@ always_ff @ (posedge CLK, negedge nRST) begin
   else if(memwbif.halt_out) dpif.halt <=1;
 end // end always_ff
 
-//assign dpif.halt      = cuif.cpu_halt; // not sure here
 
 // ================HAZARDS!=============== //
 /*
-    output  hazard, rdat1_in, rdat2_out
+    // hazard unit ports
+  modport hu (
+    input   ihit, dhit, ifid_imemload, idex_imemload,
+            idex_dREN_out,
+
 */
-assign hazif.ihit = dpif.ihit;
-assign hazif.dhit = dpif.dhit;
-assign hazif.exmem_WEN    = exmemif.WEN_out;
-assign hazif.exmem_wsel   = exmemif.wsel_out;
-assign hazif.exmem_port_o = exmemif.port_o_out;
-assign hazif.memwb_WEN    = memwbif.WEN_out;
-assign hazif.memwb_wsel   = memwbif.wsel_out;
-assign hazif.rfif_wdat    = rfif.wdat;
-assign hazif.imemload     = idexif.imemload_out;
-assign hazif.rdat1_in     = idexif.rdat1_out;
-assign hazif.rdat2_in     = idexif.rdat2_out;
+assign huif.ihit          = dpif.ihit;
+assign huif.dhit          = dpif.dhit;
+assign huif.ifid_imemload = ifidif.imemload_out;
+assign huif.idex_imemload = idexif.imemload_out;
+assign huif.idex_dREN_out = idexif.dREN_out; 
 
 
+// ================FORWARDING!=============== //
+assign fuif.exmem_WEN    = exmemif.WEN_out;
+assign fuif.exmem_wsel   = exmemif.wsel_out;
+assign fuif.exmem_port_o = exmemif.port_o_out;
+assign fuif.memwb_WEN    = memwbif.WEN_out;
+assign fuif.memwb_wsel   = memwbif.wsel_out;
+assign fuif.rfif_wdat    = rfif.wdat;
+assign fuif.imemload     = idexif.imemload_out;
+assign fuif.rdat1_in     = idexif.rdat1_out;
+assign fuif.rdat2_in     = idexif.rdat2_out;
 
 
 // ======== FETCH ================= //
 assign dpif.imemaddr = pcif.imemaddr;
-assign pcif.ihit     = dpif.ihit;
+assign pcif.ihit     = huif.pc_enable; // CHANGE PC TO ''ENABLE"
   // IFID inputs
-assign ifidif.enable            = dpif.ihit;
+assign ifidif.enable            = huif.ifid_enable;
 assign ifidif.imemload_in       = dpif.imemload;
 assign ifidif.npc_in            = pc4;
-assign ifidif.flush             = dpif.dhit; //TEMP (SET LATER)
+assign ifidif.flush             = huif.ifid_flush;
 
 
 // ======== DECODE ================= //
@@ -122,7 +133,9 @@ assign rfif.rsel2 = instr.rt;
 assign cuif.imemload = ifidif.imemload_out;
 
 // IDEX inputs
-assign idexif.enable = (dpif.dhit || dpif.ihit); 
+assign idexif.enable = huif.idex_enable;
+assign idexif.flush        = huif.idex_flush; 
+
 assign idexif.rdat1_in     = rfif.rdat1;
 assign idexif.rdat2_in     = rfif.rdat2;
 assign idexif.aluop_in     = cuif.aluop;
@@ -136,7 +149,7 @@ assign idexif.wsel_in      = cuif.wsel;
 assign idexif.WEN_in       = cuif.WEN;
 assign idexif.lui_word_in  = cuif.lui_word;
 assign idexif.pc_select_in = cuif.pc_select;
-assign idexif.flush        = 0; //TEMP (SET LATER)
+
 
 //Passed from IFID latch
 assign idexif.npc_in      =       ifidif.npc_out;
@@ -146,12 +159,12 @@ assign idexif.imemload_in =  ifidif.imemload_out;
 // ======== EXECUTE ================= //
    // ALU inputs
 assign al.alu_op = idexif.aluop_out;
-assign al.port_a = hazif.rdat1_out;
-assign al.port_b = (idexif.alusrc_out) ? idexif.immediate_out : hazif.rdat2_out;
+assign al.port_a = fuif.rdat1_out;
+assign al.port_b = (idexif.alusrc_out) ? idexif.immediate_out : fuif.rdat2_out;
 
 // EXMEM inputs
-assign exmemif.enable    = (dpif.dhit || dpif.ihit); // halt?
-assign exmemif.flush     = 0; //TEMP (SET LATER)
+assign exmemif.enable    = huif.exmem_enable;
+assign exmemif.flush     = huif.exmem_flush;
 assign exmemif.port_o_in = al.port_o; 
 assign exmemif.z_fl_in   = al.z_fl;
 
@@ -166,15 +179,15 @@ assign exmemif.lui_word_in  = idexif.lui_word_out;
 assign exmemif.pc_select_in = idexif.pc_select_out;
 assign exmemif.npc_in       = idexif.npc_out;
 assign exmemif.imemload_in  = idexif.imemload_out;
-assign exmemif.rdat1_in     = hazif.rdat1_out;
-assign exmemif.rdat2_in     = hazif.rdat2_out;
+assign exmemif.rdat1_in     = fuif.rdat1_out;
+assign exmemif.rdat2_in     = fuif.rdat2_out;
 
 
 
 // ======== MEMORY =================== //
   // MEMWB inputs
-assign memwbif.enable      = (dpif.dhit || dpif.ihit); // halt?
-assign memwbif.flush       = 0; //TEMP (SET LATER)
+assign memwbif.enable      = huif.memwb_enable;
+assign memwbif.flush       = huif.memwb_flush;
 assign memwbif.dmemload_in = dpif.dmemload;
 
 //Passed from EXMEM latch
