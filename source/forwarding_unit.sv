@@ -19,18 +19,18 @@ assign instr = fuif.imemload;
 
 // rdat 1 forwarding
 always_comb begin
-  if      (fuif.exmem_WEN && (instr.rs == fuif.exmem_wsel) )
+  if      (fuif.exmem_WEN && (fuif.exmem_wsel != 0) && (instr.rs == fuif.exmem_wsel) )
     fuif.rdat1_out = fuif.exmem_port_o;
-  else if (fuif.memwb_WEN &&  (instr.rs == fuif.memwb_wsel) )
+  else if (fuif.memwb_WEN && (fuif.memwb_wsel != 0) && (instr.rs == fuif.memwb_wsel) )
     fuif.rdat1_out = fuif.rfif_wdat;
   else fuif.rdat1_out = fuif.rdat1_in;
 end // end_always
 
 // rdat 2 forwarding
 always_comb begin
-  if      (fuif.exmem_WEN && (instr.rt == fuif.exmem_wsel) )
+  if      (fuif.exmem_WEN && (fuif.exmem_wsel != 0) && (instr.rt == fuif.exmem_wsel) )
        fuif.rdat2_out = fuif.exmem_port_o;
-  else if (fuif.memwb_WEN && (instr.rt == fuif.memwb_wsel) )
+  else if (fuif.memwb_WEN && (fuif.memwb_wsel != 0) && (instr.rt == fuif.memwb_wsel) )
        fuif.rdat2_out = fuif.rfif_wdat;
   else fuif.rdat2_out = fuif.rdat2_in;
 end // end always

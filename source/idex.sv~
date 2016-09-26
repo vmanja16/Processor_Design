@@ -24,7 +24,7 @@ module idex (input CLK, nRST, idex_if.id idexif);
       idexif.rdat2_out    <= 0;
        idexif.immediate_out <= 0;
        idexif.alusrc_out    <=0;
-       idexif.aluop_out      <= ALU_SRL;
+       idexif.aluop_out      <= ALU_ADD;
        idexif.dREN_out         <=0;
        idexif.dWEN_out        <=0;
        idexif.halt_out         <=0;

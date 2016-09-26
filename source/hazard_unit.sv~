@@ -2,7 +2,16 @@
 import cpu_types_pkg::*;
 
 `include "hazard_unit_if.vh"
+/*
+// hazard unit ports
+  modport hu (
+    input   ihit, dhit, idif_imemload, idex_imemload,
+            idex_dREN_out, pc_enable,
+    output  idif_enable, idif_flush, idex_enable, idex_flush
+            exmem_enable, exmem_flush, memwb_enable, memwb_flush
+  );
 
+*/
 module hazard_unit (input CLK, nRST, hazard_unit_if.hu huif);
 
 logic load_hazard;
