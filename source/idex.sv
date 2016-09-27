@@ -17,7 +17,24 @@ module idex (input CLK, nRST, idex_if.id idexif);
   );
 */
   always_ff @ (posedge CLK, negedge nRST) begin
-    if (( nRST==0) || idexif.flush) begin
+    if ( nRST==0 ) begin
+      idexif.imemload_out <= 0; // 0 on nRST
+      idexif.npc_out      <= 0; // 0 on nRST
+      idexif.rdat1_out    <= 0;
+      idexif.rdat2_out    <= 0;
+       idexif.immediate_out <= 0;
+       idexif.alusrc_out    <=0;
+       idexif.aluop_out      <= ALU_SRL;
+       idexif.dREN_out         <=0;
+       idexif.dWEN_out        <=0;
+       idexif.halt_out         <=0;
+       idexif.wdatsel_out    <= PORT_O;
+       idexif.wsel_out       <= 0;
+       idexif.WEN_out       <= 0;
+       idexif.lui_word_out <= 0;
+       idexif.pc_select_out <= NEXT;
+    end
+   else if (idexif.flush) begin
       idexif.imemload_out <= 0; // 0 on nRST
       idexif.npc_out      <= 0; // 0 on nRST
       idexif.rdat1_out    <= 0;

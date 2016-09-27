@@ -138,6 +138,7 @@ casez(instr.opcode)
 //================= R-TYPE! =================================
 
   RTYPE: begin
+    cuif.rsel1 = r_instr.rs;
     cuif.wsel = r_instr.rd;
     cuif.WEN = 1; // NOT for JR!
     casez(r_instr.funct)
