@@ -145,7 +145,8 @@ package cpu_types_pkg;
   typedef enum logic [2:0] {
     JUMP,
     JUMPREGISTER,
-    BRANCH,
+    BRANCH_IF_EQUAL,
+    BRANCH_IF_NOT_EQUAL,
     PC_HALT,
     NEXT
   } pcselect_t;

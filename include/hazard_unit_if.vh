@@ -21,6 +21,10 @@ word_t ifid_imemload;
 word_t idex_imemload;
 logic idex_dREN_out;
 
+// from exmem
+logic z_fl;
+pcselect_t pc_select;
+
 // from datapath
 logic  ihit, dhit;
 
@@ -33,7 +37,7 @@ logic exmem_enable, exmem_flush, memwb_enable, memwb_flush;
   // hazard unit ports
   modport hu (
     input   ihit, dhit, ifid_imemload, idex_imemload,
-            idex_dREN_out,
+            idex_dREN_out, z_fl, pc_select,
     output  ifid_enable, ifid_flush, idex_enable, idex_flush, 
             pc_enable, exmem_enable, exmem_flush, memwb_enable, 
             memwb_flush
@@ -44,7 +48,7 @@ logic exmem_enable, exmem_flush, memwb_enable, memwb_flush;
     input   hazard, rdat1_out, rdat2_out,
     output  exmem_WEN, memwb_WEN, ihit, dhit, rdat1_in, 
             rdat2_in, imemload, rfif_wdat, exmem_wsel, 
-            memwb_wsel, exmem_port_o 
+            memwb_wsel, exmem_port_o,z_fl, pc_select, 
   );
 */
 endinterface

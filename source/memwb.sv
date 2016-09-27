@@ -15,6 +15,7 @@ module memwb (input CLK, nRST, memwb_if.mem memwbif);
       memwbif.wsel_out <= 0;
       memwbif.WEN_out <= 0;
       memwbif.lui_word_out <= 0;
+      memwbif.npc_out     <= 0;
     end
     else if (memwbif.enable) begin
       memwbif.port_o_out <= memwbif.port_o_in;
@@ -23,7 +24,8 @@ module memwb (input CLK, nRST, memwb_if.mem memwbif);
       memwbif.wdatsel_out <= memwbif.wdatsel_in;
       memwbif.wsel_out <= memwbif.wsel_in;
       memwbif.WEN_out <= memwbif.WEN_in;
-      memwbif.lui_word_out <= memwbif.lui_word_in;      
+      memwbif.lui_word_out <= memwbif.lui_word_in;
+      memwbif.npc_out      <= memwbif.npc_in;      
     end
   end // end always_ff
 

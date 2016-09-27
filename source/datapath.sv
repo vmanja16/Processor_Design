@@ -85,21 +85,22 @@ always_ff @ (posedge CLK, negedge nRST) begin
   else if(memwbif.halt_out) dpif.halt <=1;
 end // end always_ff
 
+// =============== PC =================== //
+assign pcif.enable    = huif.pc_enable;
+assign pcif.pc_select = exmemif.pc_select_out; 
+assign pcif.jump_data = exmemif.imemload_out;
+assign pcif.z_fl      = exmemif.z_fl_out;
+assign pcif.npc       = exmemif.npc_out;
+assign pcif.rdat1     = exmemif.rdat1_out;
 
 // ================HAZARDS!=============== //
-/*
-    // hazard unit ports
-  modport hu (
-    input   ihit, dhit, ifid_imemload, idex_imemload,
-            idex_dREN_out,
-
-*/
 assign huif.ihit          = dpif.ihit;
 assign huif.dhit          = dpif.dhit;
 assign huif.ifid_imemload = ifidif.imemload_out;
 assign huif.idex_imemload = idexif.imemload_out;
-assign huif.idex_dREN_out = idexif.dREN_out; 
-
+assign huif.idex_dREN_out = idexif.dREN_out;
+assign huif.pc_select     = exmemif.pc_select_out;
+assign huif.z_fl          = exmemif.z_fl_out; 
 
 // ================FORWARDING!=============== //
 assign fuif.exmem_WEN    = exmemif.WEN_out;
@@ -112,10 +113,10 @@ assign fuif.imemload     = idexif.imemload_out;
 assign fuif.rdat1_in     = idexif.rdat1_out;
 assign fuif.rdat2_in     = idexif.rdat2_out;
 
-
 // ======== FETCH ================= //
 assign dpif.imemaddr = pcif.imemaddr;
-assign pcif.ihit     = huif.pc_enable; // CHANGE PC TO ''ENABLE"
+
+
   // IFID inputs
 assign ifidif.enable            = huif.ifid_enable;
 assign ifidif.imemload_in       = dpif.imemload;
@@ -206,18 +207,6 @@ assign dpif.dmemWEN   = exmemif.dWEN_out;
 assign dpif.datomic   = 0; // what is this?
 assign dpif.dmemstore = exmemif.rdat2_out;
 assign dpif.dmemaddr  = exmemif.port_o_out;
-
-/*
-//Next PC logic
-always_comb begin
-  casez (exmemif.pc_select_out)
-    PC_HALT:      next_pc = current_pc;
-    NEXT:         next_pc = current_pc + 32'h4; // standard
-    default:      next_pc = current_pc + 32'h4; // standard case
-  endcase
-end // end always_comb
-*/
-
 
 // ======== WRITEBACK ================ //
 

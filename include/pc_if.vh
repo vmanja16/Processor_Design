@@ -14,22 +14,16 @@ interface pc_if;
   // import types
   import cpu_types_pkg::*;
   
-  pcselect_t     pc_select;
-  word_t    rtn_addr, imemaddr, jump_data, next_pc;
-  logic ihit; logic dhit;
-
-  
+  pcselect_t  pc_select;
+  word_t  rtn_addr, imemaddr, jump_data, npc, rdat1;
+  logic enable, z_fl;
 
   // pc ports
   modport pc (
-    input   pc_select, jump_data, ihit, dhit, next_pc,
+    input   pc_select, jump_data, enable, z_fl, npc, rdat1,
     output imemaddr, rtn_addr
   );
-  // pc tb
-  modport tb (
-    input   rtn_addr, imemaddr, 
-    output pc_select, jump_data, ihit, dhit, next_pc
-  );
-endinterface
+
+ endinterface
 
 `endif // PC_IF_VH

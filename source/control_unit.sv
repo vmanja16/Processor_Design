@@ -58,35 +58,36 @@ casez(instr.opcode)
   end 
   JAL: begin 
     cuif.pc_select = JUMP;
-    cuif.wdatsel = RTN_ADDR;
-    cuif.WEN  = 1; cuif.wsel = 5'd31;
+    cuif.wdatsel   = RTN_ADDR;
+    cuif.WEN       = 1; 
+    cuif.wsel      = 5'd31;
     // No aluop
   end
 //================ I-TYPE!===============================
   BEQ: begin 
-    if (cuif.z_fl) cuif.pc_select = BRANCH;
-    cuif.aluop = ALU_SUB;
-    cuif.alusrc = 0;
+    cuif.pc_select = BRANCH_IF_EQUAL;
+    cuif.aluop     = ALU_SUB;
+    cuif.alusrc    = 0;
   end
   BNE: begin
-    if (!cuif.z_fl) cuif.pc_select = BRANCH; 
-    cuif.aluop = ALU_SUB;
-    cuif.alusrc = 0;
+    cuif.pc_select = BRANCH_IF_NOT_EQUAL; 
+    cuif.aluop     = ALU_SUB;
+    cuif.alusrc    = 0;
   end
   ADDI: begin
-    cuif.aluop = ALU_ADD; 
+    cuif.aluop  = ALU_ADD; 
     cuif.alusrc = 1;
-    cuif.WEN = 1;
+    cuif.WEN    = 1;
   end
   ADDIU: begin 
-    cuif.aluop = ALU_ADD;
+    cuif.aluop  = ALU_ADD;
     cuif.alusrc = 1;
-    cuif.WEN = 1;
+    cuif.WEN    = 1;
   end
   SLTI: begin 
-    cuif.aluop = ALU_SLT;
+    cuif.aluop  = ALU_SLT;
     cuif.alusrc = 1;
-    cuif.WEN = 1;
+    cuif.WEN    = 1;
   end
   SLTIU: begin 
     cuif.aluop = ALU_SLTU;
@@ -96,21 +97,21 @@ casez(instr.opcode)
   ANDI: begin 
     cuif.immediate = zero_extended_immediate;
     cuif.aluop     = ALU_AND;
-    cuif.alusrc = 1;
+    cuif.alusrc    = 1;
     cuif.WEN       = 1;
   end
   
   ORI: begin 
     cuif.immediate = zero_extended_immediate;
     cuif.aluop     = ALU_OR;
-    cuif.alusrc =1;
-    cuif.WEN = 1;
+    cuif.alusrc    = 1;
+    cuif.WEN       = 1;
   end 
   XORI: begin   
     cuif.immediate = zero_extended_immediate;
     cuif.aluop     = ALU_XOR;
-    cuif.alusrc = 1;
-    cuif.WEN = 1;
+    cuif.alusrc    = 1;
+    cuif.WEN       = 1;
   end  
   LUI:  begin 
     cuif.WEN     = 1;
@@ -138,7 +139,6 @@ casez(instr.opcode)
 
   RTYPE: begin
     cuif.rsel1 = r_instr.rs;
- //   cuif.rsel2 = r_instr.rt;
     cuif.wsel = r_instr.rd;
     cuif.WEN = 1; // NOT for JR!
     casez(r_instr.funct)
@@ -154,8 +154,6 @@ casez(instr.opcode)
       end
       JR: begin
         cuif.pc_select = JUMPREGISTER;
-   //     cuif.rsel2     = r_instr.rs; JUST USE RDAT1
-   //     cuif.jump_data = cuif.rdat2;    ^
         // No aluop
         cuif.WEN = 0; 
       end
