@@ -48,7 +48,7 @@ logic exmem_enable, exmem_flush, memwb_enable, memwb_flush;
     input   ifid_enable, ifid_flush, idex_enable, idex_flush, 
             pc_enable, exmem_enable, exmem_flush, memwb_enable, 
             memwb_flush,
-    output  ihit, dhit, ifid_imemload, idex_imemload,idex_dREN_out, z_fl, pc_select
+    output  ihit, dhit, ifid_imemload, idex_imemload
   );
 
 endinterface
