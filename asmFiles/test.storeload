@@ -1,0 +1,21 @@
+
+org 0x0000
+ori $5, $0, 0x03
+ori $6, $0, data
+ori $8, $0, exit
+
+lw $7, 0($6)
+sw $7, 4($6)
+j branch
+nop
+nop
+nop
+branch:
+jr $8
+sw $7, 0($5)
+exit:
+halt
+
+data:
+org 0x0300
+cfw 10
