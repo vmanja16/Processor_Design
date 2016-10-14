@@ -1,0 +1,40 @@
+Number of Instructions(from Sim): 9786
+
+RAM Latency: 3
+
+///////////////////////////////////
+PIPELINE:
+////////////////////////////////////
+
+TB: 20, 10 ns period:::: CLK: 150.92 MHz CPUCLK: 66.77 MHz // report mean(CLK/2 CPUCLK) == 71.12 MHz === 14.06 ns
+
+Cycles: 101505 @ 20,10 
+
+
+Highest Achieved: 100 MHz
+
+Instructions/ClockCycle = 9786/101505 = 0.096
+
+Latency: 5 * Clock_period
+
+Critical Path: 13.833 ns
+
+MIPS = Instructions/Cycle * Cycles/second /10^6 = 0.096 * 71.12 === 6.83 MIPS
+
+/////////////////////////////////////
+SINGLE-CYCLE:
+////////////////////////////////////
+
+TB: 20, 19, 18  ns        period:::: CLK: 56.72 MHz CPUCLK: 33.84 MHz == 31.1 MHz == 32.15 ns
+
+Cycles: 75108 @ 20,19, 18
+
+Highest Achieved: 55.55 MHz
+
+Instructions/ClockCyle = 9786/75108 = 0.13
+
+Latency: Clock_period
+
+Critical Path: 27.700 ns
+
+MIPS: 0.13 * 32.15 = 4.18 MIPS

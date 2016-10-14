@@ -34,8 +34,8 @@ interface control_unit_if;
 
 // alu
   aluop_t aluop;
-  word_t port_o;  
-  logic z_fl;
+//  word_t port_o;  
+ // logic z_fl;
 // immediates  
   word_t immediate; // sign-extended imm
   word_t lui_word; // non-sign extended imm
