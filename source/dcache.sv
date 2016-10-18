@@ -196,9 +196,6 @@ always_comb begin
         cif.dREN = 0; cif.dWEN = 0;
       end
     end
-    WRITE_MISS_DIRTY: begin
-
-    end
 
     default : /* default */;
   endcase
