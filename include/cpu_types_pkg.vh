@@ -133,6 +133,14 @@ package cpu_types_pkg;
     logic [IBYT_W-1:0]  bytoff;
   } icachef_t;
 
+  typedef struct packed {
+    logic               valid;
+    logic [ITAG_W-1:0]  tag;
+    logic [IIDX_W-1:0]  idx;
+    logic [IBYT_W-1:0]  bytoff;
+    word_t              data;
+  } icacheframe_t;
+
   // dcache format type
   typedef struct packed {
     logic [DTAG_W-1:0]  tag;
@@ -140,6 +148,17 @@ package cpu_types_pkg;
     logic [DBLK_W-1:0]  blkoff;
     logic [DBYT_W-1:0]  bytoff;
   } dcachef_t;
+  
+  typedef struct packed {
+    logic               valid;
+    logic               dirty;
+    logic [DTAG_W-1:0]  tag;
+    logic [DIDX_W-1:0]  idx;
+    logic [DBLK_W-1:0]  blkoff;
+    logic [DBYT_W-1:0]  bytoff;
+    word_t [1:0]        data;
+  } dcacheframe_t;
+
 
   // pcselect
   typedef enum logic [2:0] {

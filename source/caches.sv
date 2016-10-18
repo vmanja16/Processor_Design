@@ -25,9 +25,9 @@ module caches (
   word_t daddr;
 
   // icache
-  //icache  ICACHE(dcif, cif);
+  icache  ICACHE(dcif, cif);
   // dcache
-  //dcache  DCACHE(dcif, cif);
+  dcache  DCACHE(dcif, cif);
 
   // single cycle instr saver (for memory ops)
   always_ff @(posedge CLK)
@@ -44,6 +44,7 @@ module caches (
       daddr <= dcif.dmemaddr;
     end
   end
+
   // dcache invalidate before halt
   assign dcif.flushed = dcif.halt;
 
