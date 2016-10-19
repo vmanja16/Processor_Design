@@ -34,11 +34,14 @@ module icache(input logic CLK, nRST, datapath_cache_if dcif, caches_if icif);
 	istate_t      state, next_state;
 	logic         miss;
 	logic [15:0] index;
+	logic accessing;
 // OUTPUTS
-	assign dcif.ihit      = (frames[index].valid) && (iaddr_in.tag == frames[index].tag);
+	assign dcif.ihit      = (frames[index].valid) && (iaddr_in.tag == frames[index].tag)
+	                        && (!accessing);
 	assign dcif.imemload  = frames[index].data; 
 
 //  Internals
+	assign accessing = dcif.dmemREN || dcif.dmemWEN;
 	assign iaddr_in = icif.iaddr;
 	assign miss     = !dcif.ihit;
 	assign index    = iaddr_in.idx;

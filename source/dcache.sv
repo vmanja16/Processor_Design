@@ -88,7 +88,7 @@ logic read_hit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_mi
 // Internals
   assign daddr_in  = dcif.daddr;
   assign index     = daddr_in.idx;
-  assign blkoff    = blkoff;
+  assign blkoff    = daddr_in.blkoff;
   assign frame0    = sets[index][0];
   assign frame1    = sets[index][1];
   assign lru_frame = sets[index][LRU[index]];
