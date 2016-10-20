@@ -28,7 +28,7 @@ module caches (
   // dcache
   dcache  DCACHE(CLK, nRST, dcif, cif);
 
-  assign dcif.flushed = dcif.halt;
+  //assign dcif.flushed = dcif.halt;
 
 // Top DATAPATH
 

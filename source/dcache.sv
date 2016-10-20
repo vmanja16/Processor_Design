@@ -40,7 +40,9 @@ typedef enum logic[3:0] {
   WRITEBACK_1,
   WRITE_MISS_CLEAN,
   WRITE_MISS_WB_0,
-  WRITE_MISS_WB_1
+  WRITE_MISS_WB_1,
+  HALT_0,
+  HALT_1
 } dstate_t;
 
 
@@ -60,9 +62,10 @@ dcachef_t daddr_in;
 dcacheframe_t  next_set [1:0];
 dstate_t state, next_state;
 dcacheframe_t sets[7:0][1:0];
-dcacheframe_t lru_frame, frame0, frame1;
+dcacheframe_t lru_frame, frame0, frame1, halt_frame;
 logic blkoff, match0, match1, match, lru;
-word_t lru_addr;
+word_t lru_addr, halt_addr;
+logic [4:0] halt_count, next_halt_count;
 
 logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_miss_clean, write_tag_miss_dirty;
 
@@ -81,27 +84,35 @@ logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_mis
 */
 // OUTPUTS
  // dcif.dhit cif.dREN cif.dWEN cif.daddr cif.dstore dcif.dmemload
- assign dcif.dhit = (readhit || writehit);
- assign dcif.dmemload  = sets[index][match1].data[blkoff];
+ assign dcif.dhit     = (readhit || writehit);
+ assign dcif.dmemload = sets[index][match1].data[blkoff];
+ assign dcif.flushed  = (halt_count == 16); 
  // cif signals assigned in combinational block
 
 
 // Internals
-  assign daddr_in  = dcif.dmemaddr;
-  assign index     = daddr_in.idx;
-  assign blkoff    = daddr_in.blkoff;
-  assign frame0    = sets[index][0];
-  assign frame1    = sets[index][1];
-  assign lru_frame = sets[index][LRU[index]];
+  assign daddr_in   = dcif.dmemaddr;
+  assign index      = daddr_in.idx;
+  assign blkoff     = daddr_in.blkoff;
+  assign frame0     = sets[index][0];
+  assign frame1     = sets[index][1];
+
+
+  assign halt_frame = sets[halt_count[3:1]][halt_count[0]];
+  assign halt_addr  = {halt_frame.tag, halt_count[3:1], 3'b000};
+
   assign match0    = (daddr_in.tag == frame0.tag) && (frame0.valid); // checks match and valid
   assign match1    = (daddr_in.tag == frame1.tag) && (frame1.valid); // checks match and valid
   assign match     = (match0 || match1);
+
   assign lru       = LRU[index];
   assign lru_addr  = {lru_frame.tag, index, 3'b00}; 
+  assign lru_frame = sets[index][LRU[index]];
 
   assign readhit              = dcif.dmemREN &&  match;
   assign read_tag_miss_clean  = dcif.dmemREN &&  !match &&  !lru_frame.dirty;
   assign read_tag_miss_dirty  = dcif.dmemREN &&  !match &&  lru_frame.dirty;
+
   assign writehit             = dcif.dmemWEN &&  match;  
   assign write_tag_miss_clean = dcif.dmemWEN &&  !match && !lru_frame.dirty;
   assign write_tag_miss_dirty = dcif.dmemWEN &&  !match && lru_frame.dirty;
@@ -109,14 +120,17 @@ logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_mis
 // UPDATE REGISTERS
 always_ff @(posedge CLK, negedge nRST) begin 
   if(!nRST) begin 
-      sets <= '{default:'0};
-      LRU    <= '0;
-      state  <= IDLE;
+      sets       <= '{default:'0};
+      LRU        <= '0;
+      state      <= IDLE;
+      halt_count <= 0;
+
   end 
   else begin
     sets[index] <= next_set;
     LRU[index]  <= next_LRU;
     state       <= next_state;
+    halt_count  <= next_halt_count;
   end
 end // end always_ff
 
@@ -124,44 +138,32 @@ always_comb begin
   next_set   = sets[index];
   next_LRU   = LRU[index];
   next_state = state;
+  next_halt_count = halt_count;
   cif.dREN   = 0;
   cif.dWEN   = 0;
   cif.daddr  = dcif.dmemaddr;
   cif.dstore = dcif.dmemstore;
   casez (state)
     IDLE: begin
-      if (readhit) begin
-        next_LRU = match0; // if it maches 0, LRU is tag 1
+      if (dcif.halt) begin
+        if (halt_count < 16) next_state = HALT_0;
       end
-      else 
-      if (read_tag_miss_clean) begin
-        next_state = LOAD_0;
-      end
-      else
-      if (read_tag_miss_dirty) begin
-        next_state = WRITEBACK_0; 
-      end
-      else 
-      if (writehit) begin
+      else if (readhit) next_LRU = match0; // if it maches 0, LRU is tag 1
+      else if (read_tag_miss_clean) next_state = LOAD_0;
+      else if (read_tag_miss_dirty) next_state = WRITEBACK_0; 
+      else if (writehit) begin
         if (match0) begin next_set[0].data[blkoff] = dcif.dmemstore; next_set[0].dirty = 1; end
         if (match1) begin next_set[1].data[blkoff] = dcif.dmemstore; next_set[1].dirty = 1; end
         next_LRU = match0;
       end
-      else 
-      if (write_tag_miss_clean) begin
-        next_state = WRITE_MISS_CLEAN;
-      end
-      else 
-      if (write_tag_miss_dirty) begin
-        next_state = WRITEBACK_0;
-      end
+      else if (write_tag_miss_clean) next_state = WRITE_MISS_CLEAN;
+      else if (write_tag_miss_dirty) next_state = WRITEBACK_0;
     end // end IDLE
 
     LOAD_0: begin
       cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.dmemaddr;
       if (!cif.dwait) begin
         next_state = LOAD_1;
-        next_set[lru].tag     = daddr_in.tag;
         next_set[lru].data[0] = cif.dload;
         next_set[lru].valid   = 0;
         next_set[lru].dirty   = 0;
@@ -173,6 +175,7 @@ always_comb begin
         next_state = IDLE;
         next_set[lru].data[1] = cif.dload;
         next_set[lru].valid = 1;
+        next_set[lru].tag     = daddr_in.tag;
         next_LRU = !lru;
       end
     end
@@ -201,10 +204,24 @@ always_comb begin
         next_set[lru].tag = daddr_in.tag;
         next_state = IDLE;
         next_LRU = !lru;
-        //cif.dREN = 0; cif.dWEN = 0; // maybe don't need this (might even be bad)
       end
     end
-    default : /* default */;
+    HALT_0: begin
+      if (halt_count == 16) next_state = IDLE;
+      else if (halt_frame.dirty) begin 
+        cif.dWEN = 1; cif.dREN = 0; cif.daddr = halt_addr; cif.dstore = halt_frame.data[0]; 
+        if (!cif.dwait) next_state = HALT_1;
+      end
+      else begin
+        next_state = HALT_0;
+        next_halt_count = halt_count + 1;
+      end
+    end
+    HALT_1: begin
+        cif.dWEN = 1; cif.dREN = 0; cif.daddr = halt_addr+4; cif.dstore = halt_frame.data[1]; 
+        if (!cif.dwait) begin next_state = HALT_0; next_halt_count = halt_count + 1; end
+    end
+    default: begin end 
   endcase
 
 end // end_always_comb
