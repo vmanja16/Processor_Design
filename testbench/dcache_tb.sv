@@ -5,15 +5,14 @@
 import cpu_types_pkg::*;
 `timescale 1 ns / 1ns
 
-module icache_tb;
+module dcache_tb;
 
 parameter PERIOD = 20;
 
 logic CLK = 0;
-logic RAMCLK = 0;
 logic nRST;
-always #(PERIOD/2) RAMCLK++;
-always #(PERIOD)   CLK++;
+always #(PERIOD/2) CLK++;
+
 caches_if cif0(); // the cache
 caches_if cif1(); // useless for single core
 cache_control_if #(.CPUS(1)) ccif (cif0, cif1); // instansiate controller interface w/ cache
@@ -39,8 +38,7 @@ test PROG(CLK, nRST, dcif, cif0); // CALLS the programming block using cif0 as a
 
 `ifndef MAPPED
   caches         C(CLK, nRST, dcif, cif0);
-  //icache         I(CLK, nRST, dcif, cif0);
-  memory_control M(RAMCLK, nRST, ccif);
+  memory_control M(CLK, nRST, ccif);
   ram            R(CLK, nRST, ramif);
 `else
 `endif
@@ -55,36 +53,12 @@ static int v1 = 32'h10000;
 static int v2 = 32'h1234;
 
 task test_load_from_memory();
-  @(posedge CLK);
-  while (dcif.ihit == 0) begin @ (posedge CLK); end
-  if (dcif.imemload == dcif.imemaddr)
-    $display("PASSED: loaded instr from memory\n");
-  else $display("FAILED did not load instr from memory\n");
-  #(PERIOD);
-endtask
-task test_load_from_cache();
-  @(posedge CLK);
-  if (dcif.ihit == 1)
-    $display("PASSED: immediate ihit from cache\n");
-  else $display("FAILED: no immediate ihit from cache\n");
-  if (dcif.imemload == dcif.imemaddr)
-    $display("PASSED: loaded instr from cache\n");
-  else $display("FAILED did not load instr from cache\n");
-  #(PERIOD);
-endtask
-task test_accessing();
-  int i;
-  for (i=0; i < 3; i++) begin
-    @ (posedge CLK);
-    if ((dcif.ihit||cif.iREN) ==1 ) begin
-      $display("FAILED: Attempted to get new instruction when dcache working\n");
-      break;
-    end
-  end
-  if ((dcif.ihit||cif.iREN) == 0) $display("PASSED: did not read when dcache working\n");
-endtask
-
-initial begin
+while (dcif.ihit == 0) begin @ (posedge CLK); end
+if (dcif.imemload == dcif.imemaddr)
+  $display("PASSED: loaded instr from memory\n");
+else $display("FAILED did not load instr from memory\n");
+#(PERIOD);
+endtask initial begin
 
 // need to give cache from dpif:(imemREN, dmemREN, dmemWEN, imemaddr) in program block
 // need to check values of cif.imemload and cif.ihit and cif.iREN
@@ -100,25 +74,14 @@ nRST = 0;
 nRST = 1;
 # (PERIOD);
 
+
+dcif.imemREN = 1; dcif.imemaddr = 32'h4;
+test_load_from_memory();
+
+
+
+
 // TEST 1: Standard instruction read from memory:
-$display("\tStandard instruction read from memory\n");
-dcif.imemREN = 1; dcif.imemaddr = 32'h4;
-test_load_from_memory();
-dcif.imemREN = 1; dcif.imemaddr = 32'h8;
-test_load_from_memory();
-
-$display("\tProper behavior when read/write data\n");
-dcif.dmemREN = 1;
-test_accessing();
-dcif.dmemREN = 0;
-
-$display("\tProper instruction read from cache\n");
-dcif.imemREN = 1; dcif.imemaddr = 32'h4;
-test_load_from_cache();
-
-
-
-
 
 
 
