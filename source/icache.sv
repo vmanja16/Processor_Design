@@ -43,7 +43,7 @@ module icache(input logic CLK, nRST, datapath_cache_if dcif, caches_if icif);
 //  Internals
 	assign accessing = dcif.dmemREN || dcif.dmemWEN;
 	assign iaddr_in = icif.iaddr;
-	assign miss     = !dcif.ihit;
+	assign miss     = (!dcif.ihit) && (!accessing);
 	assign index    = iaddr_in.idx;
 
 //  UPDATE REGISTERS

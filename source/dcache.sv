@@ -134,7 +134,7 @@ always_comb begin
       end
       else 
       if (read_tag_miss_clean) begin
-        cif.dREN = 1; cif.daddr = dcif.daddr;
+        cif.dREN = 1; cif.daddr = dcif.daddr; // maybe don't need
         next_state = LOAD_0;
       end
       else
@@ -146,10 +146,10 @@ always_comb begin
       if (writehit) begin
         if (match0) next_set[0].data[blkoff] = dcif.dmemstore;
         if (match1) next_set[1].data[blkoff] = dcif.dmemstore;
+        next_LRU = match0;
       end
       else 
       if (write_tag_miss_clean) begin
-        replace LRU tag, write dmemstore to LRU block[offset], set dirty=1; set valid = 0;
         cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.daddr - (blkoff ? 4 : 0); // maybe don't need this
         next_state = WRITE_MISS_CLEAN;
       end
