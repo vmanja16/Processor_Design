@@ -32,7 +32,7 @@ ________________________________________________________________________________
 
 module dcache(input logic CLK, nRST, datapath_cache_if.cache dcif, caches_if cif);
 
-typdef enum logic[3:0] {
+typedef enum logic[3:0] {
   IDLE,
   LOAD_0,
   LOAD_1,
@@ -40,7 +40,7 @@ typdef enum logic[3:0] {
   WRITEBACK_1,
   WRITE_MISS_CLEAN,
   WRITE_MISS_WB_0,
-  WRITE_MISS_WB_1,
+  WRITE_MISS_WB_1
 } dstate_t;
 
 
@@ -48,7 +48,7 @@ typdef enum logic[3:0] {
     logic               valid;
     logic               dirty;
     logic [DTAG_W-1:0]  tag;
-    logic [DIDX_W-1:0]  idx;
+    //logic [DIDX_W-1:0]  idx;
     logic [DBLK_W-1:0]  blkoff;
     logic [DBYT_W-1:0]  bytoff;
     word_t [1:0]        data;
@@ -57,13 +57,14 @@ typdef enum logic[3:0] {
 logic [7:0] index;
 logic [7:0] LRU, next_LRU;
 dcachef_t daddr_in;
-dcacheframe_t [1:0] next_set;
+dcacheframe_t  next_set [1:0];
 dstate_t state, next_state;
 dcacheframe_t sets[7:0][1:0];
-dcacheframe_t lru_frame;
-logic blkoff;
+dcacheframe_t lru_frame, frame0, frame1;
+logic blkoff, match0, match1, match, lru;
+word_t lru_addr;
 
-logic read_hit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_miss_clean, write_tag_miss_dirty, match;
+logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_miss_clean, write_tag_miss_dirty;
 
 // NOTE: on a load_WRITEBACK, can load first(give a dhit) and then writeback (from WB registers)
 // QUESTION: SHOULD DWEN/DREN come out of latches!?
@@ -94,11 +95,11 @@ logic read_hit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_mi
   assign lru_frame = sets[index][LRU[index]];
   assign match0    = (daddr_in.tag == frame0.tag) && (frame0.valid); // checks match and valid
   assign match1    = (daddr_in.tag == frame1.tag) && (frame1.valid); // checks match and valid
-  assign match     = (match0 || match1)
+  assign match     = (match0 || match1);
   assign lru       = LRU[index];
   assign lru_addr  = {lru_frame.tag, index, 3'b00}; 
 
-  assign read_hit             = dcif.dmemREN &&  match;
+  assign readhit             = dcif.dmemREN &&  match;
   assign read_tag_miss_clean  = dcif.dmemREN &&  !match &&  !lru_frame.dirty;
   assign read_tag_miss_dirty  = dcif.dmemREN &&  !match &&  lru_frame.dirty;
   assign writehit             = dcif.dmemWEN &&  match;  
@@ -172,7 +173,7 @@ always_comb begin
       end
     end
     LOAD_1: begin
-      cif.dREN = 1; dWEN = 0; cif.daddr = dcif.daddr + 4;
+      cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.daddr + 4;
       if (!cif.dwait) begin
         next_state = IDLE;
         next_set[lru].data[1] = cif.dload;
@@ -205,8 +206,8 @@ always_comb begin
       if (!dcif.dwait) begin
         next_set[lru].data[blkoff]  = dcif.dmemstore; // write to word from DP
         next_set[lru].data[!blkoff] = cif.dload;  // write to other word from Mem
-        next_set.valid = 1;
-        next_set.dirty = 1;
+        next_set[lru].valid = 1;
+        next_set[lru].dirty = 1;
         next_state = IDLE;
         next_LRU = !lru;
         cif.dREN = 0; cif.dWEN = 0; // maybe don't need this (might even be bad)
