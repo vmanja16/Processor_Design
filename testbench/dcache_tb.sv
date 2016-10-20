@@ -9,9 +9,10 @@ module dcache_tb;
 
 parameter PERIOD = 20;
 
-logic CLK = 0;
+logic CLK = 0; logic RAMCLK = 0;
 logic nRST;
-always #(PERIOD/2) CLK++;
+always #(PERIOD/2) RAMCLK++;
+always #(PERIOD)   CLK++;
 
 caches_if cif0(); // the cache
 caches_if cif1(); // useless for single core
@@ -21,7 +22,8 @@ cpu_ram_if ramif(); // ram
 
 /*                   DUT: ccif->cif0->icache()                             */
 
-// signals to datapath
+// signals from datapath
+assign dcif.imemREN = 0; // ONLY TESTING DCACHE
 
 // signals to Memory controller
 assign ccif.ramload   = ramif.ramload;
@@ -39,7 +41,7 @@ test PROG(CLK, nRST, dcif, cif0); // CALLS the programming block using cif0 as a
 `ifndef MAPPED
   caches         C(CLK, nRST, dcif, cif0);
   memory_control M(CLK, nRST, ccif);
-  ram            R(CLK, nRST, ramif);
+  ram            R(RAMCLK, nRST, ramif);
 `else
 `endif
 endmodule
@@ -52,19 +54,65 @@ parameter PERIOD = 20;
 static int v1 = 32'h10000;
 static int v2 = 32'h1234;
 
+task test_load_from_cache_hit();
+  @(posedge CLK);
+  if (dcif.dhit == 1)
+    $display("PASSED: immediate dhit from cache\n");
+  else $display("FAILED: no immediate dhit from cache\n");
+  if (dcif.dmemload == dcif.dmemaddr)
+    $display("PASSED: loaded data from cache\n");
+  else $display("FAILED did not load data from cache\n");
+  #(PERIOD);
+endtask
+
+task test_write_miss_clean();
+	while (dcif.dhit == 0) begin @ (posedge CLK); end
+		dcif.dmemWEN = 0; dcif.dmemREN = 1; 
+	@ (posedge CLK);
+	if (dcif.dmemload == 32'hFF)
+    $display("PASSED: loaded data from cache after writing\n");
+  else $display("FAILED did not load data from cache after writing\n");
+  #(PERIOD);
+endtask
+
 task test_load_from_memory();
-while (dcif.ihit == 0) begin @ (posedge CLK); end
-if (dcif.imemload == dcif.imemaddr)
+while (dcif.dhit == 0) begin @ (posedge CLK); end
+if (dcif.dmemload == dcif.dmemaddr)
   $display("PASSED: loaded instr from memory\n");
 else $display("FAILED did not load instr from memory\n");
 #(PERIOD);
-endtask initial begin
+endtask 
+
+task test_write_hit();
+	@ (posedge CLK);
+	if (dcif.dhit == 1) $display("PASS: Immediate dhit on writehit");
+	else $display("FAILED: no immediate dhit on writehit");
+	dcif.dmemWEN = 0; dcif.dmemREN = 1; 
+	@ (posedge CLK);
+	if (dcif.dmemload == 32'hAA)
+	$display("PASSED: loaded data from cache after writing\n");
+	else $display("FAILED did not load data from cache after writing\n");
+	#(PERIOD);
+endtask
+
+task test_dirty_read_miss();
+	while (dcif.dhit == 0) begin @ (posedge CLK); end // Written to 80 and 84
+		@ (posedge CLK);
+		dcif.dmemWEN = 0; dcif.dmemREN = 1; dcif.dmemaddr = 32'd208;
+		@ (posedge CLK);
+		if ((cif.dWEN ==1) && (cif.dstore == 32'hFF))$display("PASS: Correctly wrote lru first word to memory on read dirty miss");
+	while (dcif.dhit == 0) begin 
+	@ (posedge CLK); end // WENT through replacement
+		// MANUALLY CHECK LRU CHANGE FROM 0 to 1 because we had just written to 1 and now replacing 0
+
+endtask
+
+
+initial begin
 
 // need to give cache from dpif:(imemREN, dmemREN, dmemWEN, imemaddr) in program block
 // need to check values of cif.imemload and cif.ihit and cif.iREN
 
-dcif.imemREN  = 0;
-dcif.imemaddr = 0;
 dcif.dmemREN  = 0;
 dcif.dmemWEN  = 0;
 dcif.dmemaddr = 0;
@@ -73,22 +121,25 @@ nRST = 0;
 # (PERIOD);
 nRST = 1;
 # (PERIOD);
-
-
-dcif.imemREN = 1; dcif.imemaddr = 32'h4;
+$display("\tTESTING READ CLEAN MISS\n");
+dcif.dmemREN = 1; dcif.dmemaddr = 32'h8;
 test_load_from_memory();
+$display("\tTESTING READ HIT\n");
+dcif.dmemREN = 1; dcif.dmemaddr = 32'd12;
+test_load_from_cache_hit();
+dcif.dmemREN = 0; dcif.dmemWEN = 1; dcif.dmemstore = 32'hFF; dcif.dmemaddr = 32'd16; //dirty addr
+@(posedge CLK);
+$display("\tTESTING WRITE MISS CLEAN");
+test_write_miss_clean();
+$display("\tTESTING WRITE HIT");
+dcif.dmemREN = 0; dcif.dmemWEN = 1; dcif.dmemstore = 32'hAA; dcif.dmemaddr = 32'd20;
+@ (posedge CLK);
+test_write_hit();
+$display("\tTESTING DIRTY READ");
+dcif.dmemREN = 0; dcif.dmemWEN = 1;  dcif.dmemstore = 32'hBB; dcif.dmemaddr = 32'd80; 
+@ (posedge CLK);
+test_dirty_read_miss();
 
-
-
-
-// TEST 1: Standard instruction read from memory:
-
-
-
-
-
-
-
-  $finish;
+$finish;
 end
 endprogram

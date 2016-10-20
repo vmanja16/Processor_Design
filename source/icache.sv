@@ -66,7 +66,7 @@ module icache(input logic CLK, nRST, datapath_cache_if dcif, caches_if icif);
 		casez(state)
 			IDLE: begin
 				icif.iREN = 0;
-				if (miss) begin
+				if (miss && dcif.imemREN) begin
 					next_state       = LOAD;
 					next_frame.valid = 0;
 					icif.iREN        = 1;

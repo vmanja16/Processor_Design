@@ -87,7 +87,7 @@ logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_mis
 
 
 // Internals
-  assign daddr_in  = dcif.daddr;
+  assign daddr_in  = dcif.dmemaddr;
   assign index     = daddr_in.idx;
   assign blkoff    = daddr_in.blkoff;
   assign frame0    = sets[index][0];
@@ -99,7 +99,7 @@ logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_mis
   assign lru       = LRU[index];
   assign lru_addr  = {lru_frame.tag, index, 3'b00}; 
 
-  assign readhit             = dcif.dmemREN &&  match;
+  assign readhit              = dcif.dmemREN &&  match;
   assign read_tag_miss_clean  = dcif.dmemREN &&  !match &&  !lru_frame.dirty;
   assign read_tag_miss_dirty  = dcif.dmemREN &&  !match &&  lru_frame.dirty;
   assign writehit             = dcif.dmemWEN &&  match;  
@@ -135,82 +135,73 @@ always_comb begin
       end
       else 
       if (read_tag_miss_clean) begin
-        cif.dREN = 1; cif.daddr = dcif.daddr; // maybe don't need
         next_state = LOAD_0;
       end
       else
       if (read_tag_miss_dirty) begin
-        cif.dREN = 0; cif.dWEN = 1; cif.daddr = lru_addr; // maybe don't need this.
         next_state = WRITEBACK_0; 
       end
       else 
       if (writehit) begin
-        if (match0) next_set[0].data[blkoff] = dcif.dmemstore;
-        if (match1) next_set[1].data[blkoff] = dcif.dmemstore;
+        if (match0) begin next_set[0].data[blkoff] = dcif.dmemstore; next_set[0].dirty = 1; end
+        if (match1) begin next_set[1].data[blkoff] = dcif.dmemstore; next_set[1].dirty = 1; end
         next_LRU = match0;
       end
       else 
       if (write_tag_miss_clean) begin
-        cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.daddr - (blkoff ? 4 : 0); // maybe don't need this
         next_state = WRITE_MISS_CLEAN;
       end
       else 
       if (write_tag_miss_dirty) begin
-        cif.dWEN = 1; cif.daddr = lru_addr; // maybe don't need this
         next_state = WRITEBACK_0;
       end
     end // end IDLE
 
     LOAD_0: begin
-      cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.daddr;
+      cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.dmemaddr;
       if (!cif.dwait) begin
         next_state = LOAD_1;
         next_set[lru].tag     = daddr_in.tag;
         next_set[lru].data[0] = cif.dload;
         next_set[lru].valid   = 0;
         next_set[lru].dirty   = 0;
-        cif.daddr = dcif.daddr + 4; // maybe don't need this
       end
     end
     LOAD_1: begin
-      cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.daddr + 4;
+      cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.dmemaddr + 4;
       if (!cif.dwait) begin
         next_state = IDLE;
         next_set[lru].data[1] = cif.dload;
         next_set[lru].valid = 1;
-        cif.dREN = 0;
         next_LRU = !lru;
       end
     end
     WRITEBACK_0: begin
-      cif.dWEN = 1; cif.dREN = 0; cif.daddr = lru_addr;
+      cif.dWEN = 1; cif.dREN = 0; cif.daddr = lru_addr; cif.dstore = lru_frame.data[0];
       if (!cif.dwait) begin
         next_state = WRITEBACK_1;
-        cif.daddr = lru_addr + 4;
       end
     end
     WRITEBACK_1: begin
-      cif.dWEN = 1; cif.dREN = 0; cif.daddr = lru_addr + 4;
+      cif.dWEN = 1; cif.dREN = 0; cif.daddr = lru_addr + 4; cif.dstore = lru_frame.data[1];
       if (!cif.dwait) begin
         next_state = LOAD_0;
-        cif.daddr = dcif.daddr0; // maybe don't need this
-        cif.dWEN = 0; cif.dREN = 1; // maybe don't need this
         if (write_tag_miss_dirty) begin
           next_state = WRITE_MISS_CLEAN;
-          cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.daddr - (blkoff ? 4 : 0); // maybe don't need this     
         end
       end
     end
     WRITE_MISS_CLEAN: begin
-      cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.daddr - (blkoff ? 4 : 0);
-      if (!dcif.dwait) begin
+      cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.dmemaddr + (blkoff ? -4 : 4);
+      if (!cif.dwait) begin
         next_set[lru].data[blkoff]  = dcif.dmemstore; // write to word from DP
         next_set[lru].data[!blkoff] = cif.dload;  // write to other word from Mem
         next_set[lru].valid = 1;
         next_set[lru].dirty = 1;
+        next_set[lru].tag = daddr_in.tag;
         next_state = IDLE;
         next_LRU = !lru;
-        cif.dREN = 0; cif.dWEN = 0; // maybe don't need this (might even be bad)
+        //cif.dREN = 0; cif.dWEN = 0; // maybe don't need this (might even be bad)
       end
     end
     default : /* default */;
