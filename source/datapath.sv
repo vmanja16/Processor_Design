@@ -201,7 +201,7 @@ assign memwbif.port_o_in   = exmemif.port_o_out;
 assign memwbif.npc_in      = exmemif.npc_out;
 
 // Dcache assignments
-assign dpif.imemREN   = !dpif.halt;
+assign dpif.imemREN   = !(dpif.halt||dpif.dmemREN||dpif.dmemWEN);
 assign dpif.dmemREN   = exmemif.dREN_out;
 assign dpif.dmemWEN   = exmemif.dWEN_out;
 assign dpif.datomic   = 0; // what is this?

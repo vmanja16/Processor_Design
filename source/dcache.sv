@@ -107,7 +107,7 @@ logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_mis
 
   assign lru       = LRU[index];
   assign lru_addr  = {lru_frame.tag, index, 3'b00}; 
-  assign lru_frame = sets[index][LRU[index]];
+  assign lru_frame = sets[index][lru];
 
   assign readhit              = dcif.dmemREN &&  match;
   assign read_tag_miss_clean  = dcif.dmemREN &&  !match &&  !lru_frame.dirty;
@@ -161,32 +161,28 @@ always_comb begin
     end // end IDLE
 
     LOAD_0: begin
-      cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.dmemaddr;
+      cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.dmemaddr + (blkoff ? -4 : 0);
       if (!cif.dwait) begin
         next_state = LOAD_1;
         next_set[lru].data[0] = cif.dload;
-        next_set[lru].valid   = 0;
-        next_set[lru].dirty   = 0;
       end
     end
     LOAD_1: begin
-      cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.dmemaddr + 4;
+      cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.dmemaddr + (blkoff ? 0 : 4);
       if (!cif.dwait) begin
-        next_state = IDLE;
+        next_state            = IDLE;
         next_set[lru].data[1] = cif.dload;
-        next_set[lru].valid = 1;
+        next_set[lru].valid   = 1;
+        next_set[lru].dirty   = 0;
         next_set[lru].tag     = daddr_in.tag;
-        next_LRU = !lru;
       end
     end
     WRITEBACK_0: begin
-      cif.dWEN = 1; cif.dREN = 0; cif.daddr = lru_addr; cif.dstore = lru_frame.data[0];
-      if (!cif.dwait) begin
-        next_state = WRITEBACK_1;
-      end
+      cif.dWEN = 1; cif.daddr = lru_addr;    cif.dstore = lru_frame.data[0];
+      if (!cif.dwait) next_state = WRITEBACK_1;
     end
     WRITEBACK_1: begin
-      cif.dWEN = 1; cif.dREN = 0; cif.daddr = lru_addr + 4; cif.dstore = lru_frame.data[1];
+      cif.dWEN = 1; cif.daddr = lru_addr + 4; cif.dstore = lru_frame.data[1];
       if (!cif.dwait) begin
         next_state = LOAD_0;
         if (write_tag_miss_dirty) begin
@@ -195,15 +191,14 @@ always_comb begin
       end
     end
     WRITE_MISS_CLEAN: begin
-      cif.dREN = 1; cif.dWEN = 0; cif.daddr = dcif.dmemaddr + (blkoff ? -4 : 4);
+      cif.dREN = 1; cif.daddr = dcif.dmemaddr + (blkoff ? -4 : 4);
       if (!cif.dwait) begin
         next_set[lru].data[blkoff]  = dcif.dmemstore; // write to word from DP
         next_set[lru].data[!blkoff] = cif.dload;  // write to other word from Mem
-        next_set[lru].valid = 1;
-        next_set[lru].dirty = 1;
-        next_set[lru].tag = daddr_in.tag;
-        next_state = IDLE;
-        next_LRU = !lru;
+        next_set[lru].valid         = 1;
+        next_set[lru].dirty         = 1;
+        next_set[lru].tag           = daddr_in.tag;
+        next_state                  = IDLE;
       end
     end
     HALT_0: begin

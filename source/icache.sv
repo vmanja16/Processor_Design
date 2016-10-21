@@ -65,15 +65,12 @@ module icache(input logic CLK, nRST, datapath_cache_if dcif, caches_if icif);
 		icif.iREN = 0;
 		casez(state)
 			IDLE: begin
-				icif.iREN = 0;
 				if (miss && dcif.imemREN) begin
 					next_state       = LOAD;
-					next_frame.valid = 0;
-					icif.iREN        = 1;
 				end
 			end
 			LOAD: begin
-				icif.iREN = 1;
+				icif.iREN = dcif.imemREN;
 				if (!icif.iwait) begin
 					next_state       = IDLE;
 					next_frame.tag   = iaddr_in.tag;
