@@ -7,6 +7,7 @@
 // interfaces
 `include "datapath_cache_if.vh"
 `include "caches_if.vh"
+`include "icache_if.vh"
 
 // cpu types
 `include "cpu_types_pkg.vh"
@@ -14,8 +15,8 @@ import cpu_types_pkg::*;
 
 // Need to output IREN IHIT ILOAD
 
-module icache(input logic CLK, nRST, datapath_cache_if dcif, caches_if icif);
-
+//module icache(input logic CLK, nRST, datapath_cache_if icif, caches_if icif);
+module icache(input logic CLK, nRST, icache_if icif);
 	typedef enum logic [1:0]{
 		IDLE,
 		LOAD
@@ -36,14 +37,14 @@ module icache(input logic CLK, nRST, datapath_cache_if dcif, caches_if icif);
 	logic [15:0] index;
 	logic accessing;
 // OUTPUTS
-	assign dcif.ihit      = (frames[index].valid) && (iaddr_in.tag == frames[index].tag)
+	assign icif.ihit      = (frames[index].valid) && (iaddr_in.tag == frames[index].tag)
 	                        && (!accessing);
-	assign dcif.imemload  = frames[index].data; 
-	assign icif.iaddr      = dcif.imemaddr;
+	assign icif.imemload  = frames[index].data; 
+	assign icif.iaddr      = icif.imemaddr;
 //  Internals
-	assign accessing = dcif.dmemREN || dcif.dmemWEN;
+	assign accessing = icif.dmemREN || icif.dmemWEN;
 	assign iaddr_in = icif.iaddr;
-	assign miss     = (!dcif.ihit) && (!accessing);
+	assign miss     = (!icif.ihit) && (!accessing);
 	assign index    = iaddr_in.idx;
 
 //  UPDATE REGISTERS
@@ -65,10 +66,10 @@ module icache(input logic CLK, nRST, datapath_cache_if dcif, caches_if icif);
 		icif.iREN = 0;
 		casez(state)
 			IDLE: begin
-				if (miss && dcif.imemREN) next_state = LOAD;
+				if (miss && icif.imemREN) next_state = LOAD;
 			end
 			LOAD: begin
-				icif.iREN = dcif.imemREN;
+				icif.iREN = icif.imemREN;
 				if (!icif.iwait) begin
 					next_state       = IDLE;
 					next_frame.tag   = iaddr_in.tag;
