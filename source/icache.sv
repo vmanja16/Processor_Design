@@ -39,7 +39,7 @@ module icache(input logic CLK, nRST, datapath_cache_if dcif, caches_if icif);
 	assign dcif.ihit      = (frames[index].valid) && (iaddr_in.tag == frames[index].tag)
 	                        && (!accessing);
 	assign dcif.imemload  = frames[index].data; 
-
+	assign icif.iaddr      = dcif.imemaddr;
 //  Internals
 	assign accessing = dcif.dmemREN || dcif.dmemWEN;
 	assign iaddr_in = icif.iaddr;
@@ -65,9 +65,7 @@ module icache(input logic CLK, nRST, datapath_cache_if dcif, caches_if icif);
 		icif.iREN = 0;
 		casez(state)
 			IDLE: begin
-				if (miss && dcif.imemREN) begin
-					next_state       = LOAD;
-				end
+				if (miss && dcif.imemREN) next_state = LOAD;
 			end
 			LOAD: begin
 				icif.iREN = dcif.imemREN;

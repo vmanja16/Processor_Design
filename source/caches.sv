@@ -24,28 +24,22 @@ module caches (
   word_t daddr;
 
   // icache
-  icache  ICACHE(CLK, nRST, dcif, cif);
+  icache  ICACHE(CLK, nRST, dcif, cif); // needs imemREN, dmemREN, dmemWEN, out: ihit imemload
   // dcache
-  dcache  DCACHE(CLK, nRST, dcif, cif);
-
-  //assign dcif.flushed = dcif.halt;
-
-// Top DATAPATH
-
-  //assign dcif.ihit = (dcif.imemREN) ? ~cif.iwait : 0;
-  //assign dcif.dhit = (dcif.dmemREN|dcif.dmemWEN) ? ~cif.dwait : 0;
-  //assign dcif.imemload = cif.iload;
-
-  //assign dcif.dmemload = cif.dload;
-
-// To MEMORY CONTROLLER
-
-//  assign cif.iREN = dcif.imemREN;
-  assign cif.iaddr  = dcif.imemaddr;
-
+  dcache  DCACHE(CLK, nRST, dcif, cif); // needs dmemREN, dmemWEN, dstore, daddr; out: dhit, dmemload, flushed, cif:
   //assign cif.dREN   = dcif.dmemREN;
   //assign cif.dWEN   = dcif.dmemWEN;
   //assign cif.dstore = dcif.dmemstore;
   //assign cif.daddr  = dcif.dmemaddr;
+  //assign dcif.dhit = (dcif.dmemREN|dcif.dmemWEN) ? ~cif.dwait : 0;
+  //assign dcif.dmemload = cif.dload;
+  //assign dcif.flushed = dcif.halt;
+
+//assign dcif.ihit = (dcif.imemREN) ? ~cif.iwait : 0;  
+//assign dcif.imemload = cif.iload;
+//assign cif.iREN = dcif.imemREN;
+//assign cif.iaddr  = dcif.imemaddr;
+
+
 
 endmodule
