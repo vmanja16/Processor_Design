@@ -40,7 +40,7 @@ assign huif.memwb_enable = any_hit;
 
   // flushes
 assign huif.ifid_flush   = (huif.dhit && (!load_hazard) ) || jump_flush;
-assign huif.idex_flush   = (load_hazard && huif.dhit)       || jump_flush;
+assign huif.idex_flush   = (load_hazard && (huif.ihit||huif.dhit))       || jump_flush;
 assign huif.exmem_flush  = jump_flush;
 assign huif.memwb_flush  = 0; // NEVER	
 

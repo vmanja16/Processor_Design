@@ -35,14 +35,12 @@ assign ic.imemREN  = dcif.imemREN;
 assign ic.iload    = cif.iload;
 assign ic.dmemREN  = dcif.dmemREN;
 assign ic.dmemWEN  = dcif.dmemWEN;
-assign ic.iwait     = cif.iwait;
+assign ic.iwait    = cif.iwait;
 
 assign cif.iaddr     = ic.iaddr;
 assign dcif.imemload = ic.imemload;
 assign cif.iREN      = ic.iREN;
 assign dcif.ihit     = ic.ihit;
-
-
 
 
 assign dc.dmemaddr = dcif.dmemaddr;

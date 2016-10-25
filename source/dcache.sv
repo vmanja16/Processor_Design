@@ -39,7 +39,8 @@ typedef enum logic[3:0] {
   LOAD_0, LOAD_1,
   WRITEBACK_0, WRITEBACK_1,
   WRITE_MISS_CLEAN,
-  HALT_0, HALT_1
+  HALT_0, HALT_1,
+  COUNT
 } dstate_t;
 
   typedef struct packed {
@@ -56,13 +57,15 @@ logic [2:0] index;
 logic  LRU [7:0], next_LRU;
 dcachef_t daddr_in;
 dcacheframe_t  next_set [1:0];
-dstate_t state, next_state;
+dstate_t state, next_state, prev_state;
 dcacheframe_t sets[7:0][1:0];
 dcacheframe_t lru_frame, frame0, frame1, halt_frame;
 logic blkoff, match0, match1, match, lru;
 word_t lru_addr, halt_addr;
 logic [4:0] halt_count, next_halt_count;
 logic [2:0] halt_idx;
+word_t hit_count, next_hit_count;
+logic count_written, next_count_written;
 
 logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_miss_clean, write_tag_miss_dirty;
 
@@ -80,15 +83,15 @@ logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_mis
  // dc.dhit dc.dREN dc.dWEN dc.daddr dc.dstore dc.dmemload
  assign dc.dhit     = (readhit || writehit);
  assign dc.dmemload = sets[index][match1].data[blkoff];
- assign dc.flushed  = (halt_count == 16); 
+ assign dc.flushed  = (count_written); 
  // dc signals assigned in combinational block
 
 
 // Internals
  // assign daddr_in   = dc.dmemaddr;
   assign daddr_in.blkoff = dc.dmemaddr[2];
-  assign daddr_in.idx = dc.dmemaddr[5:3];
-  assign daddr_in.tag = dc.dmemaddr[31:6];
+  assign daddr_in.idx    = dc.dmemaddr[5:3];
+  assign daddr_in.tag    = dc.dmemaddr[31:6];
 
 
   assign index      = daddr_in.idx;
@@ -123,13 +126,19 @@ always_ff @(posedge CLK, negedge nRST) begin
       LRU        <= '{default:'0};
       state      <= IDLE;
       halt_count <= 0;
+      hit_count  <= 0;
+      count_written <= 0;
+      prev_state <= IDLE;
 
   end 
   else begin
-    sets[index] <= next_set;
-    LRU[index]  <= next_LRU;
-    state       <= next_state;
-    halt_count  <= next_halt_count;
+    sets[index]   <= next_set;
+    LRU[index]    <= next_LRU;
+    state         <= next_state;
+    halt_count    <= next_halt_count;
+    hit_count     <= next_hit_count;
+    count_written <= next_count_written;
+    prev_state    <= state;
   end
 end // end always_ff
 
@@ -142,18 +151,24 @@ always_comb begin
   dc.dWEN   = 0;
   dc.daddr  = dc.dmemaddr;
   dc.dstore = dc.dmemstore;
+  next_hit_count = hit_count;
+  next_count_written = count_written;
   casez (state)
     IDLE: begin
       if (dc.halt) begin
-        if (halt_count < 16) next_state = HALT_0;
+        if (halt_count < 16) next_state  = HALT_0;
       end
-      else if (readhit) next_LRU = match0; // if it maches 0, LRU is tag 1
+      else if (readhit) begin
+        next_LRU = match0; // if it maches 0, LRU is tag 1
+        if(prev_state==IDLE) next_hit_count = hit_count + 1;
+      end
       else if (read_tag_miss_clean) next_state = LOAD_0;
       else if (read_tag_miss_dirty) next_state = WRITEBACK_0; 
       else if (writehit) begin
         if (match0) begin next_set[0].data[blkoff] = dc.dmemstore; next_set[0].dirty = 1; end
         if (match1) begin next_set[1].data[blkoff] = dc.dmemstore; next_set[1].dirty = 1; end
         next_LRU = match0;
+        if(prev_state==IDLE) next_hit_count = hit_count + 1;
       end
       else if (write_tag_miss_clean) next_state = WRITE_MISS_CLEAN;
       else if (write_tag_miss_dirty) next_state = WRITEBACK_0;
@@ -175,6 +190,7 @@ always_comb begin
         next_set[lru].dirty   = 0;
         next_set[lru].tag     = daddr_in.tag;
         next_LRU = !lru;
+       // next_hit_count = hit_count - 1;
       end
     end
     WRITEBACK_0: begin
@@ -200,10 +216,11 @@ always_comb begin
         next_set[lru].tag           = daddr_in.tag;
         next_state                  = IDLE;
         next_LRU = !lru;
+       // next_hit_count = hit_count - 1;
       end
     end
     HALT_0: begin
-      if (halt_count == 16) next_state = IDLE;
+      if (halt_count == 16) next_state = COUNT;
       else if (halt_frame.dirty) begin 
         dc.dWEN = 1; dc.dREN = 0; dc.daddr = halt_addr; dc.dstore = halt_frame.data[0]; 
         if (!dc.dwait) next_state = HALT_1;
@@ -214,8 +231,15 @@ always_comb begin
       end
     end
     HALT_1: begin
-        dc.dWEN = 1; dc.dREN = 0; dc.daddr = halt_addr+4; dc.dstore = halt_frame.data[1]; 
+        dc.dWEN = 1; dc.daddr = halt_addr+4; dc.dstore = halt_frame.data[1]; 
         if (!dc.dwait) begin next_state = HALT_0; next_halt_count = halt_count + 1; end
+    end
+    COUNT: begin
+      dc.dWEN = 1; dc.daddr = 32'h3100; dc.dstore = hit_count;
+      if (!dc.dwait) begin 
+        next_count_written = 1;
+        next_state = IDLE;
+      end
     end
     default: begin end 
   endcase
