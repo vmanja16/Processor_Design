@@ -8,6 +8,9 @@
   ori   $2,$zero,0x80
   lui   $7,0xdead
   ori   $7,$7,0xbeef
+  ori   $8, $zero, 0xFFAA
+  ori   $9, $zero, 0x180
+  ori   $10, $zero, 0x380
   lw    $3,0($1)
   lw    $4,4($1)
   lw    $5,8($1)
@@ -16,6 +19,12 @@
   sw    $4,4($2)
   sw    $5,8($2)
   sw    $7,12($2)
+
+  lw    $7,12($2)
+  add   $7, $7, $7
+  sw    $7, 0($9) 
+  sw    $8, 0($10)
+
   halt      # that's all
 
   org   0x00F0
