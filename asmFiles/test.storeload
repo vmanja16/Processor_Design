@@ -16,6 +16,7 @@ sw $7, 0($5)
 exit:
 halt
 
-data:
+
 org 0x0300
+data:
 cfw 10

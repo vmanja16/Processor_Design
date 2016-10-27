@@ -9,6 +9,9 @@
   ori   $3, $zero, 0x200
   ori   $4, $zero, 0x300
   ori   $5, $zero, 0x400
+  ori   $9, $zero, 0x500
+  ori   $10, $zero, 0x600
+  ori   $11, $zero, 0x700 
   lw    $6, 0($1)
   lw    $7, 4($1)
   lw    $8, 8($1)
@@ -17,6 +20,8 @@
   sw    $6, 0($2)
   sw    $7, 4($2)
   sw    $8, 8($2)
+  sw    $9, 0($3)
+  sw    $10,4($3)
   halt      # that's all
 
   org   0x00F0
