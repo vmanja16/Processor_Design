@@ -36,6 +36,7 @@ interface caches_if;
   logic         ccwrite, cctrans;
   word_t        ccsnoopaddr;
 
+
   // icache ports to controller
   modport icache (
     input   iwait, iload,
@@ -59,6 +60,7 @@ interface caches_if;
             ccwrite, cctrans,
             iREN, iaddr
   );
+
 
 endinterface
 
