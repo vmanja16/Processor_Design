@@ -86,6 +86,7 @@ logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_mis
  assign dc.flushed  = (count_written); 
  // dc signals assigned in combinational block
 
+// cc.write = snoop_address match!
 
 // Internals
  // assign daddr_in   = dc.dmemaddr;
@@ -173,7 +174,6 @@ always_comb begin
       else if (write_tag_miss_clean) next_state = WRITE_MISS_CLEAN;
       else if (write_tag_miss_dirty) next_state = WRITEBACK_0;
     end // end IDLE
-
     LOAD_0: begin
       dc.dREN = 1; dc.daddr = dc.dmemaddr - (blkoff ? 4 : 0);
       if (!dc.dwait) begin
