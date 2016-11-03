@@ -3,7 +3,7 @@
 import cpu_types_pkg::*;
 `timescale 1 ns / 1ns
 
-module memory_control_tb;
+module coherence_control_tb;
 
 parameter PERIOD = 10;
 
@@ -13,82 +13,231 @@ always #(PERIOD/2) CLK++;
 
 caches_if cif0();
 caches_if cif1();
-cache_control_if #(.CPUS(1)) ccif (cif0, cif1);
-cpu_ram_if ramif();
+cache_control_if #(.CPUS(2)) ccif (cif0, cif1);
+//cpu_ram_if ramif();
 
 
-assign ccif.ramload = ramif.ramload;
-assign ccif.ramstate = ramif.ramstate;
+//assign ccif.ramload = ramif.ramload;
+//assign ccif.ramstate = ramif.ramstate;
+/*
 assign ramif.ramREN = ccif.ramREN;
 assign ramif.ramWEN = ccif.ramWEN;
 assign ramif.ramaddr = ccif.ramaddr;
 assign ramif.ramstore = ccif.ramstore;
+*/
 
-
-test PROG(CLK, nRST, cif0);
+test PROG(CLK, nRST, ccif, cif0, cif1);
 
 `ifndef MAPPED
-  memory_control M(CLK, nRST, ccif);
-  ram RAM(CLK, nRST, ramif);
+  coherence_control M(CLK, nRST, ccif );
+  //ram RAM(CLK, nRST, ramif);
 `else  
 `endif
 endmodule
 
-program test(input logic CLK, output logic nRST, caches_if.caches cif);
+program test(input logic CLK, output logic nRST, cache_control_if ccif, caches_if cif0, caches_if cif1);
 parameter PERIOD = 20;
 
 static int v1 = 32'h10000;
 static int v2 = 32'h1234;
 initial begin
+nRST = 0;
+cif0.dWEN = 1'h0;cif1.dWEN = 1'h0;
+cif0.dREN = 1'h0;cif1.dREN = 1'h0;
+cif0.cctrans = 1'b0; cif1.cctrans = 1'b0;
+cif0.daddr = 32'h0; cif1.daddr = 32'h0;
+cif0.dstore = 32'h0; cif1.dstore = 32'h0;
+# ( 2 * PERIOD);
 nRST = 1;
-cif.dWEN = 1'b0;
-cif.dREN = 1'b0;
-cif.iREN = 0;
-cif.iaddr = 32'h0;
-cif.daddr = 32'h0;
-# (2*PERIOD);
+cif0.dREN = 1; cif0.cctrans = 1; cif0.daddr = 32'hAA;
+@ (posedge CLK);
 
-// TEST 1 DATA WRITE AND READ
+if (ccif.ccwait[1] == 1) $display ("Test 1 Snoop state Worked!");
+else $display ("Test 1 Snoop state Failed");
+if (ccif.ccsnoopaddr[1] == 32'hAA) $display ("Test 1 Snoop addresss Worked!");
+else $display ("Test 1 Snoop address Failed");
 
-cif.dstore = v1;
-cif.daddr = v1;
-cif.dWEN = 1'b1;
-cif.dREN = 1'b0;
-cif.iREN = 0;
-# (PERIOD);
-cif.dWEN =0; cif.dREN = 1;
-# (PERIOD);
-if (cif.dload == v1) $display ("Test 1 Write/Read Worked!");
-else $display ("Test 1 Write/Read Failed");
-if (cif.dwait ==0) $display ("Test 1 dwait worked!");
-else $display ("Test 1 dwait failed!");
-#(2*PERIOD)
-// TEST 2 DATA WRITE Instruction READ
-cif.daddr = v2;
-cif.dstore = v2;
-cif.dWEN = 1'b1;
-cif.dREN = 1'b0;
-cif.iREN = 0;
-# (PERIOD);
-cif.dWEN =0; cif.dREN = 1;
-# (PERIOD);
-if (cif.dload == v2) $display ("Test 2 Write/Read Worked!");
-else $display ("Test 2 Write/Read Failed");
-if (cif.dwait ==0) $display ("Test 2 dwait worked!");
-else $display ("Test 2 dwait failed!");
-# (PERIOD);
-cif.dWEN=0; cif.dREN =0; cif.iREN = 1; cif.iaddr = v1;
-# (PERIOD);
-if (cif.iload == v1) $display ("Test 2 Instr Read Worked!");
-else $display ("Test 2 Instr Write/Read Failed");
-if (cif.iwait ==0) $display ("Test 2 iwait worked!");
-else $display ("Test 2 dwait failed!");
-if (cif.dwait ==1) $display ("Test 2 second dwait worked!");
-else $display ("Test 2 dwait failed!");
-dump_memory();
+cif1.ccwrite = 1; cif1.dstore = 32'hFF; // SNOOPHIT!
+// LOAD 0 STATE
+@ (posedge CLK);
+if (ccif.ccwait[1] == 1) $display ("Test 2 Snoop LOAD0 Worked!");
+else $display ("Test 2 Snoop state Failed");
+if (ccif.dload[0] == 32'hFF) $display ("Test 2  LOAD0 Worked!");
+else $display ("Test 2 LOAD0 state Failed");
+if (ccif.dwait[0] == 0) $display ("Test 2  Dwait LOAD0 Worked!");
+else $display ("Test 2 Dwait LOAD0 state Failed");
+cif1.dstore = 32'hFF -4;
+
+@ (posedge CLK );
+if (ccif.ccwait[1] == 1) $display ("Test 2 Snoop LOAD1 Worked!");
+else $display ("Test 2 Load1 state Failed");
+if (ccif.dload[0] == 32'hFF-4) $display ("Test 2  LOAD1 Worked!");
+else $display ("Test 2 LOAD1 state Failed");
+if (ccif.dwait[0] == 0) $display ("Test 2  Dwait LOAD1 Worked!");
+else $display ("Test 2 Dwait LOAD1 state Failed");
+// WRITEBACK_0 snoophit
+cif1.daddr = 32'hFF-4;
+@ (posedge CLK);
+if (ccif.ccwait[1] == 1) $display ("Test 3 Snoop WRITEBACK0 Worked!");
+else $display ("Test 3 Snoop WRITEBACK0 Failed");
+
+if (ccif.ramWEN == 1) $display ("Test 3 RamWEN WRITEBACK0 Worked!");
+else $display ("Test 3 RAMWEN WRITEBACK0 Failed");
+
+if (ccif.ramaddr == 32'hFF-4) $display ("Test 3 Ramaddr WRITEBACK0 Worked!");
+else $display ("Test 3 RAMaddr WRITEBACK0 Failed");
+// WRITEBACK 1
+cif1.daddr = 32'hFF;
+@ (posedge CLK);
+if (ccif.ccwait[1] == 1) $display ("Test 4 Snoop WRITEBACK1 Worked!");
+else $display ("Test 3 Snoop WRITEBACK1 Failed");
+
+if (ccif.ramWEN == 1) $display ("Test 4 RamWEN WRITEBACK1 Worked!");
+else $display ("Test 3 RAMWEN WRITEBACK0 Failed");
+
+if (ccif.ramaddr == 32'hFF) $display ("Test 4 Ramaddr WRITEBACK0 Worked!");
+else $display ("Test 3 RAMaddr WRITEBACK1 Failed");
+
+
+reset();
+cif0.dREN = 1; cif0.cctrans = 1; cif0.daddr = 32'hAA;
+// Snoop STATE
+@ (posedge CLK);
+if (ccif.ccwait[1] == 1) $display ("Test 5 Snoop  Worked!");
+else $display ("Test 5 Snoop state Failed");
+// LOAD_0
+@ (posedge CLK);
+if (ccif.ccwait[1] == 0) $display ("Test 5 Snoop  disable Worked!");
+else $display ("Test 5 Snoop disable Failed");
+
+if (ccif.ramREN == 1) $display ("Test 5 RamREN LOAD0 Worked!");
+else $display ("Test 3 RAMREN LOAD00 Failed");
+
+if (ccif.ramaddr == cif0.daddr) $display ("Test 5 Ramaddr LOAD0 Worked!");
+else $display ("Test 3 RAMaddr 5 Failed");
+
+// LOAD1
+@ (posedge CLK);
+if (ccif.ccwait[1] == 0) $display ("Test 6 LOAD1 Snoop  disable Worked!");
+else $display ("Test 5 Snoop disable Failed");
+
+if (ccif.ramREN == 1) $display ("Test 6 RamREN LOAD1 Worked!");
+else $display ("Test 3 RAMREN LOAD00 Failed");
+
+if (ccif.ramaddr == cif0.daddr) $display ("Test 6 Ramaddr LOAD1 Worked!");
+else $display ("Test 3 RAMaddr 5 Failed");
+
+reset();
+@(posedge CLK);
+cif0.dWEN = 1; cif0.cctrans = 1; cif0.daddr = 32'hCC;
+
+// WRITEBACK_0
+@ (posedge CLK);
+if (ccif.ccwait[1] == 1) $display ("Test 7 Snoop state wait Worked!");
+else $display ("Test 7 Snoop state Failed");
+
+if (ccif.ccsnoopaddr[1] == 32'hCC) $display ("Test 7 Snoop addresss Worked!");
+else $display ("Test 7 Snoop address Failed");
+
+if (ccif.ramWEN == 1) $display ("Test 7 RamWEN WRITEBACK0 Worked!");
+else $display ("Test 7 RAMWEN WB0 Failed");
+
+if (ccif.ramaddr == cif0.daddr) $display ("Test 7 Ramaddr WRITEBACK0 Worked!");
+else $display ("Test 7 RAMaddr WRITEBACK0 Failed");
+
+if (ccif.dwait[0] == 1) $display ("Test 7 dwait WRITEBACK0 Worked!");
+else $display ("Test 7 dwait WRITEBACK0 Failed");
+
+ccif.ramstate = ACCESS;
+
+@ (posedge CLK)
+if (ccif.dwait[0] == 0) $display ("Test 7 dwait set WRITEBACK0 Worked!");
+else $display ("Test 7 dwait set WRITEBACK0 Failed");
+
+// WRITEBACK_1
+
+ccif.ramstate = BUSY;
+@ (posedge CLK);
+
+
+
+if (ccif.ramWEN == 1) $display ("Test 8 RamWEN WRITEBACK1 Worked!");
+else $display ("Test 8 RAMWEN WB1 Failed");
+
+if (ccif.ramaddr == cif0.daddr) $display ("Test 8 Ramaddr WRITEBACK1 Worked!");
+else $display ("Test 8 RAMaddr WRITEBACK1 Failed");
+
+if (ccif.dwait[0] == 1) $display ("Test 8 dwait WRITEBACK1 Worked!");
+else $display ("Test 8 dwait WRITEBACK1 Failed");
+
+ccif.ramstate = ACCESS;
+
+@ (posedge CLK);
+@ (posedge CLK);
+
+if (ccif.dwait[0] == 0) $display ("Test 8 dwait set WRITEBACK1 Worked!");
+else $display ("Test 8 dwait set WRITEBACK1 Failed");
+
+
+reset();
+
+cif1.cctrans = 1; cif1.daddr = 32'hBB;
+@ (posedge CLK);
+
+// INVALIDATE 0 STATE!!!!!!
+if (ccif.ccwait[0] == 1) $display ("Test 9 Snoop state wait INV0 Worked!");
+else $display ("Test 9 Snoop state Failed");
+
+if (ccif.ccsnoopaddr[0] == 32'hBB) $display ("Test 9 Snoop addresss  INV0 Worked!");
+else $display ("Test 9 Snoop address Failed");
+
+
+@ (posedge CLK);
+@ (posedge CLK);
+
+if ((ccif.ccwait[0] == 0) && (ccif.ccwait[1] == 0)) $display ("Test 10 Goes back to Idle on Write without invalidation worked!");
+else $display ("Test 9 Snoop state Failed");
+
+@ (posedge CLK);
+
+// INVALIDATE 0 STATE!!!!!!
+if (ccif.ccwait[0] == 1) $display ("Test 11 Snoop state wait INV0 Worked!");
+else $display ("Test 11 Snoop state Failed");
+
+if (ccif.ccsnoopaddr[0] == 32'hBB) $display ("Test 11 Snoop addresss  INV0 Worked!");
+else $display ("Test 11 Snoop address Failed");
+
+@ (posedge CLK);
+
+cif0.ccwrite = 1; // FORCE INVALIDATION! goes to WRITEBACK!
+
+@ (posedge CLK);
+@ (posedge CLK);
+
+if (ccif.ramaddr == cif0.daddr) $display ("Test 12 Ramaddr  Invalidation WRITEBACK0 Worked!");
+else $display ("Test 12 RAMaddr Invalidation WRITEBACK0 Failed");
+
+
+
+
+//dump_memory();
+
 $finish;
 end
-task automatic dump_memory();
+task reset();
+  nRST = 0;
+  cif0.dWEN = 1'h0;cif1.dWEN = 1'h0;
+  cif0.dREN = 1'h0;cif1.dREN = 1'h0;
+  cif0.ccwrite = 1'h0; cif1.ccwrite = 1'h0;
+  cif0.cctrans = 1'b0; cif1.cctrans = 1'b0;
+  cif0.daddr = 32'h0; cif1.daddr = 32'h0;
+  cif0.dstore = 32'h0; cif1.dstore = 32'h0;
+  ccif.ramstate = BUSY;
+  # ( 2 * PERIOD);
+  nRST = 1;
+  @ (posedge CLK);
+endtask
+/*task automatic dump_memory();
     string filename = "memcpu.hex";
     int memfd;
 
@@ -127,5 +276,5 @@ task automatic dump_memory();
       $fclose(memfd);
       $display("Finished memory dump.");
     end
-  endtask
+  endtask */
 endprogram
