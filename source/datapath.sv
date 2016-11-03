@@ -55,7 +55,7 @@ module datapath (
   // Map Control Unit
   control_unit CF (CLK, nRST, cuif);
   // Map PC
-  pc PROGRAM_COUNTER (CLK, nRST, pcif);
+  pc  #(.PC_INIT(PC_INIT)) PROGRAM_COUNTER(CLK, nRST, pcif);
   // Map IFID
   ifid IFID (CLK, nRST, ifidif);
   // Map IDEX

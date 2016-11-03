@@ -35,7 +35,7 @@ module coherence_control (
             // ram outputs
             ramstore, ramaddr, ramWEN, ramREN,
             // coherence outputs to cache
-            ccwait, ccinv, ccsnoopaddr
+            ccwait, ccinv, ccccsnoopaddr
   );
 */
 
@@ -53,7 +53,7 @@ write: 0,  trans: 1 --> BusRd
 write: 1,  trans: 0 --> Do nothing
 write: 1,  trans: 1 --> BusRdx
 
-// write: Implies that the snoop_address is available in the requestee cache
+// write: Implies that the ccsnoopaddr is available in the requestee cache
 
 */
 
@@ -86,12 +86,12 @@ end // end always_ff
 
 // Internals
 assign receiever = !requestor;
-assign snoop_hit  = ccif.write[receiever];
+assign snoop_hit  = ccif.ccwrite[receiever];
 assign int_wait = ~((ccif.ramstate == ACCESS) && (ccif.dREN[requestor]||ccif.dWEN[writer]));
 
 // Coherence combinational logic
-assign ccif.snoop_address[0] = ccif.daddr[1];
-assign ccif.snoop_address[1] = ccif.daddr[0];
+assign ccif.ccsnoopaddr[0] = ccif.daddr[1];
+assign ccif.ccsnoopaddr[1] = ccif.daddr[0];
 
 always_comb begin
   next_state     = state;
@@ -101,16 +101,16 @@ always_comb begin
   ccif.dwait[1]  = 1;
   ccif.ccwait[0]   = 0;
   ccif.ccwait[1]   = 0;
-  ccif.inv[0]    = 0;
-  ccif.inv[1]    = 0;
+  ccif.ccinv[0]    = 0;
+  ccif.ccinv[1]    = 0;
   casez(state)
     IDLE: begin // NEED TO ARBITRATE!      
       if      (ccif.dREN[0] && ccif.cctrans[0]) begin next_state = SNOOP;        next_requestor = 0; end
       else if (ccif.dREN[1] && ccif.cctrans[1]) begin next_state = SNOOP;        next_requestor = 1; end
       else if (ccif.dWEN[0] && ccif.cctrans[0]) begin next_state = WRITE_BACK_0; next_requestor = 0; end
       else if (ccif.dWEN[1] && ccif.cctrans[1]) begin next_state = WRITE_BACK_0; next_requestor = 1; end
-      else if (ccif.trans[0])              begin next_state = INVALIDATE_0; next_requestor = 0; end// clean hit on cache 0
-      else if (ccif.trans[1])              begin next_state = INVALIDATE_0; next_requestor = 1; end// clean hit on cache 1
+      else if (ccif.cctrans[0])              begin next_state = INVALIDATE_0; next_requestor = 0; end// clean hit on cache 0
+      else if (ccif.cctrans[1])              begin next_state = INVALIDATE_0; next_requestor = 1; end// clean hit on cache 1
       next_writer = next_requestor;
     end
     SNOOP: begin
@@ -118,8 +118,9 @@ always_comb begin
            next_state           = LOAD_0;
     end
     LOAD_0: begin
-      ccif.ccwait[receiever] = 1;
+
       if(snoop_hit) begin 
+        ccif.ccwait[receiever] = 1;
         ccif.dwait[requestor] = 0; 
         ccif.dload[requestor] = ccif.dstore[receiever];
         next_state = LOAD_1;
@@ -131,8 +132,8 @@ always_comb begin
       end
     end
     LOAD_1: begin
-      ccif.ccwait[receiever] = 1;
       if(snoop_hit) begin 
+        ccif.ccwait[receiever] = 1;
         ccif.dwait[requestor] = 0; 
         ccif.dload[requestor] = ccif.dstore[receiever];
         next_state = WRITE_BACK_0; next_writer = receiever;
@@ -144,12 +145,14 @@ always_comb begin
       end
     end
     WRITE_BACK_0: begin
-      ccif.ramWEN = 1; ccif.ramaddr = {ccif.snoop_address[31:3],3'h0}; ccif.dstore[writer]=ccif.ramload;
+      ccif.ccwait[writer] = 1;
+      ccif.ramWEN = 1; ccif.ramaddr = {ccif.daddr[writer]}; ccif.ramstore[writer]=ccif.ramload;
       ccif.dwait[writer] = int_wait;
       if (!ccif.dwait[writer]) next_state = WRITE_BACK_1;
     end
     WRITE_BACK_1: begin
-      ccif.ramWEN = 1; ccif.ramaddr = {ccif.snoop_address[31:3],3'h4}; ccif.dstore[writer]=ccif.ramload;
+      ccif.ccwait[writer] = 1;
+      ccif.ramWEN = 1; ccif.ramaddr = {ccif.daddr[writer]}; ccif.ramstore[writer]=ccif.ramload;
       ccif.dwait[writer] = int_wait;   
       if (!ccif.dwait[writer]) next_state = IDLE;     
     end
@@ -159,6 +162,7 @@ always_comb begin
       next_state = INVALIDATE_1;
     end
     INVALIDATE_1: begin 
+      ccif.ccwait[receiever] = 1;
       ccif.ccinv[receiever] = 1;
       next_state = IDLE; 
       if (ccif.ccwrite[receiever]) begin
@@ -167,6 +171,4 @@ always_comb begin
     end
   endcase
 end //
-
-
 endmodule
