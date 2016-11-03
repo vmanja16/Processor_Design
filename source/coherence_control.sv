@@ -12,9 +12,9 @@
 // memory types
 `include "cpu_types_pkg.vh"
 
-module memory_control (
+module coherence_control (
   input CLK, nRST,
-  cache_control_if.cc ccif
+  cache_control_if ccif
 );
   // type import
   import cpu_types_pkg::*;
@@ -57,7 +57,10 @@ write: 1,  trans: 1 --> BusRdx
 
 */
 
-typedef enum logic [3:0] {IDLE, LOAD_0, LOAD_1, } coherence_state_t;
+typedef enum logic [3:0] {IDLE, LOAD_0, LOAD_1, 
+                          WRITE_BACK_0, WRITE_BACK_1,
+                          INVALIDATE_0, INVALIDATE_1,
+                          SNOOP} coherence_state_t;
 
 coherence_state_t state, next_state;
 
@@ -65,14 +68,14 @@ logic select; // selects which cache's arbitration signals to send
 
 logic requestor, next_requestor, receiever, writer, next_writer;
 logic snoop_hit;
-
+logic int_wait;
 
 /****************************************************************************************************************************
 //                                            COHERENCE
 /***************************************************************************************************************************/
 
 always_ff @ (posedge CLK, negedge nRST) begin
-  if (!nRST) begin state <= IDLE; requestor <= 0;
+  if (!nRST) begin state <= IDLE; requestor <= 0; end
   else       begin 
     state     <= next_state; 
     requestor <= next_requestor; 
@@ -84,6 +87,7 @@ end // end always_ff
 // Internals
 assign receiever = !requestor;
 assign snoop_hit  = ccif.write[receiever];
+assign int_wait = ~((ccif.ramstate == ACCESS) && (ccif.dREN[requestor]||ccif.dWEN[writer]));
 
 // Coherence combinational logic
 assign ccif.snoop_address[0] = ccif.daddr[1];
@@ -95,26 +99,26 @@ always_comb begin
   next_writer    = writer;
   ccif.dwait[0]  = 1;
   ccif.dwait[1]  = 1;
-  ccif.wait[0]   = 0;
-  ccif.wait[1]   = 0;
+  ccif.ccwait[0]   = 0;
+  ccif.ccwait[1]   = 0;
   ccif.inv[0]    = 0;
   ccif.inv[1]    = 0;
   casez(state)
     IDLE: begin // NEED TO ARBITRATE!      
-      if      (dREN[0] && ccif.cctrans[0]) begin next_state = SNOOP;        next_requestor = 0; end
-      else if (dREN[1] && ccif.cctrans[1]) begin next_state = SNOOP;        next_requestor = 1; end
-      else if (dWEN[0] && ccif.cctrans[0]) begin next_state = WRITE_BACK_0; next_requestor = 0; end
-      else if (dWEN[1] && ccif.cctrans[1]) begin next_state = WRITE_BACK_0; next_requestor = 1; end
+      if      (ccif.dREN[0] && ccif.cctrans[0]) begin next_state = SNOOP;        next_requestor = 0; end
+      else if (ccif.dREN[1] && ccif.cctrans[1]) begin next_state = SNOOP;        next_requestor = 1; end
+      else if (ccif.dWEN[0] && ccif.cctrans[0]) begin next_state = WRITE_BACK_0; next_requestor = 0; end
+      else if (ccif.dWEN[1] && ccif.cctrans[1]) begin next_state = WRITE_BACK_0; next_requestor = 1; end
       else if (ccif.trans[0])              begin next_state = INVALIDATE_0; next_requestor = 0; end// clean hit on cache 0
       else if (ccif.trans[1])              begin next_state = INVALIDATE_0; next_requestor = 1; end// clean hit on cache 1
       next_writer = next_requestor;
     end
     SNOOP: begin
-           ccif.wait[receiever] =  1;
+           ccif.ccwait[receiever] =  1;
            next_state           = LOAD_0;
     end
     LOAD_0: begin
-      ccif.wait[receiever] = 1;
+      ccif.ccwait[receiever] = 1;
       if(snoop_hit) begin 
         ccif.dwait[requestor] = 0; 
         ccif.dload[requestor] = ccif.dstore[receiever];
@@ -122,12 +126,12 @@ always_comb begin
       end
       else begin
         ccif.ramREN = 1; ccif.ramaddr = ccif.daddr[requestor]; ccif.dload[requestor]=ccif.ramload;
+        ccif.dwait[requestor] = int_wait;
         if (!ccif.dwait[requestor]) next_state = LOAD_1;            
       end
-
     end
     LOAD_1: begin
-      ccif.wait[receiever] = 1;
+      ccif.ccwait[receiever] = 1;
       if(snoop_hit) begin 
         ccif.dwait[requestor] = 0; 
         ccif.dload[requestor] = ccif.dstore[receiever];
@@ -135,22 +139,24 @@ always_comb begin
       end
       else begin          
         ccif.ramREN = 1; ccif.ramaddr = ccif.daddr[requestor]; ccif.dload[requestor]=ccif.ramload;
+        ccif.dwait[requestor] = int_wait;       
         if (!ccif.dwait[requestor]) next_state = IDLE;
       end
     end
     WRITE_BACK_0: begin
-    ccif.ramWEN = 1; ccif.ramaddr = {snoop_address[31:3],3'h0}; ccif.dstore[writer]=ccif.ramload;
-    if (!ccif.dwait[writer]) next_state = WRITE_BACK_1;
+      ccif.ramWEN = 1; ccif.ramaddr = {ccif.snoop_address[31:3],3'h0}; ccif.dstore[writer]=ccif.ramload;
+      ccif.dwait[writer] = int_wait;
+      if (!ccif.dwait[writer]) next_state = WRITE_BACK_1;
     end
     WRITE_BACK_1: begin
-      ccif.ramWEN = 1; ccif.ramaddr = {snoop_address[31:3],3'h4}; ccif.dstore[writer]=ccif.ramload;
-         if (!ccif.dwait[writer]) next_state = IDLE;     
+      ccif.ramWEN = 1; ccif.ramaddr = {ccif.snoop_address[31:3],3'h4}; ccif.dstore[writer]=ccif.ramload;
+      ccif.dwait[writer] = int_wait;   
+      if (!ccif.dwait[writer]) next_state = IDLE;     
     end
     INVALIDATE_0: begin // This state is literally just to snoop lol
       ccif.ccinv[receiever] = 1;
       ccif.ccwait[receiever] = 1;
       next_state = INVALIDATE_1;
-
     end
     INVALIDATE_1: begin 
       ccif.ccinv[receiever] = 1;
@@ -158,29 +164,9 @@ always_comb begin
       if (ccif.ccwrite[receiever]) begin
         next_state = WRITE_BACK_0; next_writer = receiever; 
       end
-
     end
+  endcase
 end //
 
 
-
-/****************************************************************************************************************************
-//                                            ARBITER
-/***************************************************************************************************************************/
-// CACHE outputs
-
-/*
-assign ccif.dload = ccif.ramload;
-assign ccif.iload = ccif.ramload;
-assign ccif.iwait = ~((ccif.ramstate == ACCESS) && !(ccif.dWEN||ccif.dREN));
-assign ccif.dwait = ~((ccif.ramstate == ACCESS) && (ccif.dREN||ccif.dWEN));
-
-
-// RAM outputs
-assign ccif.ramWEN   = ccif.dWEN;
-assign ccif.ramREN   = (ccif.dWEN) ? 1'b0 : (ccif.iREN|ccif.dREN);
-assign ccif.ramstore = ccif.dstore;
-assign ccif.ramaddr  = (ccif.dREN||ccif.dWEN) ? ccif.daddr : ccif.iaddr;
-
-*/
 endmodule
