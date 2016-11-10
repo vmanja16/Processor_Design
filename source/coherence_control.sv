@@ -14,7 +14,8 @@
 
 module coherence_control (
   input CLK, nRST,
-  cache_control_if ccif
+  cache_control_if ccif, wait,
+  output word_t ramaddr, ramstore, logic  ramREN, ramWEN,
 );
   // type import
   import cpu_types_pkg::*;
@@ -50,8 +51,8 @@ the coherence control lets the requesting cache block continue with the original
 
 write: 0 , trans: 0 --> Do nothing
 write: 0,  trans: 1 --> BusRd
-write: 1,  trans: 0 --> Do nothing
-write: 1,  trans: 1 --> BusRdx
+write: 1,  trans: 0 --> Invalidate if necessary
+write: 1,  trans: 1 --> Standard Writeback
 
 // write: Implies that the ccsnoopaddr is available in the requestee cache
 
@@ -121,9 +122,9 @@ always_comb begin
 
       if(snoop_hit) begin 
         ccif.ccwait[receiever] = 1;
-        ccif.dwait[requestor] = 0; 
-        ccif.dload[requestor] = ccif.dstore[receiever];
-        next_state = LOAD_1;
+        ccif.dwait[requestor]  = 0; 
+        ccif.dload[requestor]  = ccif.dstore[receiever];
+        next_state             = LOAD_1;
       end
       else begin
         ccif.ramREN = 1; ccif.ramaddr = ccif.daddr[requestor]; ccif.dload[requestor]=ccif.ramload;
@@ -165,7 +166,7 @@ always_comb begin
       ccif.ccwait[receiever] = 1;
       ccif.ccinv[receiever] = 1;
       next_state = IDLE; 
-      if (ccif.ccwrite[receiever]) begin
+      if (snoop_hit) begin
         next_state = WRITE_BACK_0; next_writer = receiever; 
       end
     end
