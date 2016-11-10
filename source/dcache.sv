@@ -219,6 +219,23 @@ always_comb begin
        // next_hit_count = hit_count - 1;
       end
     end
+
+
+    SNOOP STATE -- GETS here from a CC_WAIT[RECEIVER]:
+    if snoophit:
+      if clean:
+        dstore = snoopdata;
+        // HERE: cctrans: - hit
+        // HERE: ccwrite: - dirty
+
+    if !cc_wait: next_state = IDLE;
+    else:
+
+
+
+
+
+
     HALT_0: begin
       if (halt_count == 16) next_state = COUNT;
       else if (halt_frame.dirty) begin 
