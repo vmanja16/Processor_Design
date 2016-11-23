@@ -14,8 +14,8 @@
 
 module coherence_control (
   input CLK, nRST,
-  cache_control_if ccif, wait,
-  output word_t ramaddr, ramstore, logic  ramREN, ramWEN,
+  cache_control_if ccif,
+  coherence_control_if cocif
 );
   // type import
   import cpu_types_pkg::*;
@@ -34,7 +34,7 @@ module coherence_control (
             // cache outputs
     output  iwait, dwait, iload, dload,
             // ram outputs
-            ramstore, ramaddr, ramWEN, ramREN,
+            ramstore, ramaddr, cocif.ramWEN, cocif.ramREN,
             // coherence outputs to cache
             ccwait, ccinv, ccccsnoopaddr
   );
@@ -69,7 +69,6 @@ logic select; // selects which cache's arbitration signals to send
 
 logic requestor, next_requestor, receiever, writer, next_writer;
 logic snoop_hit;
-logic int_wait;
 
 /****************************************************************************************************************************
 //                                            COHERENCE
@@ -88,7 +87,6 @@ end // end always_ff
 // Internals
 assign receiever = !requestor;
 assign snoop_hit  = ccif.ccwrite[receiever];
-assign int_wait = ~((ccif.ramstate == ACCESS) && (ccif.dREN[requestor]||ccif.dWEN[writer]));
 
 // Coherence combinational logic
 assign ccif.ccsnoopaddr[0] = ccif.daddr[1];
@@ -96,20 +94,33 @@ assign ccif.ccsnoopaddr[1] = ccif.daddr[0];
 
 always_comb begin
   next_state     = state;
-  next_requestor = requestor;
+  next_requestor = ccif.ccwrite[0]; // requestor
   next_writer    = writer;
+  
   ccif.dwait[0]  = 1;
   ccif.dwait[1]  = 1;
-  ccif.ccwait[0]   = 0;
-  ccif.ccwait[1]   = 0;
-  ccif.ccinv[0]    = 0;
-  ccif.ccinv[1]    = 0;
+  ccif.ccwait[0] = 0;
+  ccif.ccwait[1] = 0;
+  ccif.ccinv[0]  = 0;
+  ccif.ccinv[1]  = 0;
+  
+
+
+  // DREN & !cctrans = READ_MISS
+  // DREN & cctrans  = WRITE_MISS_CLEAN
+  // DWEN            = WB
+  // !DREN && !DWEN && cctrans = Write_hit_clean // need to inv
+
+
+// CC outputs to mem_arbiter = dREN dWEN  
+
+
   casez(state)
     IDLE: begin // NEED TO ARBITRATE!      
-      if      (ccif.dREN[0] && ccif.cctrans[0]) begin next_state = SNOOP;        next_requestor = 0; end
-      else if (ccif.dREN[1] && ccif.cctrans[1]) begin next_state = SNOOP;        next_requestor = 1; end
-      else if (ccif.dWEN[0] && ccif.cctrans[0]) begin next_state = WRITE_BACK_0; next_requestor = 0; end
-      else if (ccif.dWEN[1] && ccif.cctrans[1]) begin next_state = WRITE_BACK_0; next_requestor = 1; end
+      if      (ccif.dREN[0]) begin next_state = SNOOP;        next_requestor = 0; end // read_miss or write_miss_clean
+      else if (ccif.dREN[1]) begin next_state = SNOOP;        next_requestor = 1; end // read_miss or write_miss_clean
+      else if (ccif.dWEN[0] && ccif.cctrans[0]) begin next_state = WRITE_BACK_0; next_requestor = 0; end // writing back [0]
+      else if (ccif.dWEN[1] && ccif.cctrans[1]) begin next_state = WRITE_BACK_0; next_requestor = 1; end // writing back [1]
       else if (ccif.cctrans[0])              begin next_state = INVALIDATE_0; next_requestor = 0; end// clean hit on cache 0
       else if (ccif.cctrans[1])              begin next_state = INVALIDATE_0; next_requestor = 1; end// clean hit on cache 1
       next_writer = next_requestor;
@@ -117,46 +128,50 @@ always_comb begin
     SNOOP: begin
            ccif.ccwait[receiever] =  1;
            next_state           = LOAD_0;
+           if(ccif.cctrans[requestor]) next_state = WRITE_MISS_CLEAN;
     end
+   
+    // LOAD_0-1 states take care of 1. requestor Read_miss 2. the receiver's response to BusRD
     LOAD_0: begin
-
       if(snoop_hit) begin 
         ccif.ccwait[receiever] = 1;
-        ccif.dwait[requestor]  = 0; 
         ccif.dload[requestor]  = ccif.dstore[receiever];
-        next_state             = LOAD_1;
+        cocif.ramWEN = 1; ramstore = ccif.dstore[receiever]; cocif.ramaddr = ccif.daddr[requestor];
       end
-      else begin
-        ccif.ramREN = 1; ccif.ramaddr = ccif.daddr[requestor]; ccif.dload[requestor]=ccif.ramload;
-        ccif.dwait[requestor] = int_wait;
-        if (!ccif.dwait[requestor]) next_state = LOAD_1;            
-      end
+      else begin cocif.ramREN = 1; cocif.ramaddr = ccif.daddr[requestor]; ccif.dload[requestor]=ccif.ramload; end
+      
+      ccif.dwait[requestor] = wait_in;
+      if (!wait_in) next_state = LOAD_1;            
     end
     LOAD_1: begin
       if(snoop_hit) begin 
         ccif.ccwait[receiever] = 1;
-        ccif.dwait[requestor] = 0; 
         ccif.dload[requestor] = ccif.dstore[receiever];
-        next_state = WRITE_BACK_0; next_writer = receiever;
       end
       else begin          
-        ccif.ramREN = 1; ccif.ramaddr = ccif.daddr[requestor]; ccif.dload[requestor]=ccif.ramload;
-        ccif.dwait[requestor] = int_wait;       
-        if (!ccif.dwait[requestor]) next_state = IDLE;
+        cocif.ramREN = 1; cocif.ramaddr = ccif.daddr[requestor]; ccif.dload[requestor]=ccif.ramload; ccif.dwait[requestor] = wait_in;        
       end
+      if (!wait_in) next_state = IDLE;
     end
-    WRITE_BACK_0: begin
-      ccif.ccwait[writer] = 1;
-      ccif.ramWEN = 1; ccif.ramaddr = {ccif.daddr[writer]}; ccif.ramstore[writer]=ccif.ramload;
-      ccif.dwait[writer] = int_wait;
-      if (!ccif.dwait[writer]) next_state = WRITE_BACK_1;
+
+// TODO: WRITE MISS CLEAN!!!!!
+
+
+    WRITE_BACK_0: begin 
+      cocif.ramWEN = 1; cocif.ramaddr = ccif.daddr[requestor]; cocif.ramstore=dstore[requestor];
+      ccif.dwait[requestor] = wait_in;
+      if (!wait_in) next_state = WRITE_BACK_1;
     end
     WRITE_BACK_1: begin
-      ccif.ccwait[writer] = 1;
-      ccif.ramWEN = 1; ccif.ramaddr = {ccif.daddr[writer]}; ccif.ramstore[writer]=ccif.ramload;
-      ccif.dwait[writer] = int_wait;   
+      cocif.ramWEN = 1; cocif.ramaddr = {ccif.daddr[writer]}; ccif.ramstore[writer]=ccif.ramload;
+      ccif.dwait[writer] = wait_in;   
       if (!ccif.dwait[writer]) next_state = IDLE;     
     end
+
+
+
+
+
     INVALIDATE_0: begin // This state is literally just to snoop lol
       ccif.ccinv[receiever] = 1;
       ccif.ccwait[receiever] = 1;
@@ -171,5 +186,6 @@ always_comb begin
       end
     end
   endcase
+  */
 end //
 endmodule

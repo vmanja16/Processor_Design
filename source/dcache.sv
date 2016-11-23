@@ -55,11 +55,11 @@ typedef enum logic[3:0] {
 
 logic [2:0] index;
 logic  LRU [7:0], next_LRU;
-dcachef_t daddr_in;
+dcachef_t daddr_in, snoop_in;
 dcacheframe_t  next_set [1:0];
 dstate_t state, next_state, prev_state;
 dcacheframe_t sets[7:0][1:0];
-dcacheframe_t lru_frame, frame0, frame1, halt_frame;
+dcacheframe_t lru_frame, frame0, frame1, halt_frame, snoop_frame;
 logic blkoff, match0, match1, match, lru;
 word_t lru_addr, halt_addr;
 logic [4:0] halt_count, next_halt_count;
@@ -67,7 +67,11 @@ logic [2:0] halt_idx;
 word_t hit_count, next_hit_count;
 logic count_written, next_count_written;
 
-logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_miss_clean, write_tag_miss_dirty;
+logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_miss_clean, write_tag_miss_dirty, snoophit;
+logic snoop_match1, snoop_match0;
+
+logic inv;
+
 
 /*
   readhit: read and data is in cache
@@ -84,6 +88,19 @@ logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_mis
  assign dc.dhit     = (readhit || writehit);
  assign dc.dmemload = sets[index][match1].data[blkoff];
  assign dc.flushed  = (count_written); 
+ 
+// COHERENCE
+  assign dc.ccwrite = snoophit && snoop_frame.dirty;
+  assign snoophit = (snoop_match0 ) || ( snoop_match1  );
+  assign snoop_match0 = (sets[snoop_in.idx][1].valid) && (snoop_in.tag == sets[snoop_in.idx][0].tag);
+  assign snoop_match1 = (sets[snoop_in.idx][1].valid) && (snoop_in.tag == sets[snoop_in.idx][1].tag);
+  assign snoop_in.blkoff = dc.ccsnoopaddr[2];
+  assign snoop_in.idx    = dc.ccsnoopaddr[5:3];
+  assign snoop_in.tag    = dc.ccsnoopaddr[31:6];
+  assign snoop_frame     = sets[snoop_in.idx][!snoop_match0];
+
+
+  assign inv = (dc.ccwrite && dc.ccwait) || (snoophit && dc.ccinv); // first term is a read, second is a write
  // dc signals assigned in combinational block
 
 // cc.write = snoop_address match!
@@ -190,7 +207,6 @@ always_comb begin
         next_set[lru].dirty   = 0;
         next_set[lru].tag     = daddr_in.tag;
         next_LRU = !lru;
-       // next_hit_count = hit_count - 1;
       end
     end
     WRITEBACK_0: begin
@@ -216,26 +232,8 @@ always_comb begin
         next_set[lru].tag           = daddr_in.tag;
         next_state                  = IDLE;
         next_LRU = !lru;
-       // next_hit_count = hit_count - 1;
       end
     end
-
-
-    SNOOP STATE -- GETS here from a CC_WAIT[RECEIVER]:
-    if snoophit:
-      if clean:
-        dstore = snoopdata;
-        // HERE: cctrans: - hit
-        // HERE: ccwrite: - dirty
-
-    if !cc_wait: next_state = IDLE;
-    else:
-
-
-
-
-
-
     HALT_0: begin
       if (halt_count == 16) next_state = COUNT;
       else if (halt_frame.dirty) begin 
@@ -251,15 +249,26 @@ always_comb begin
         dc.dWEN = 1; dc.daddr = halt_addr+4; dc.dstore = halt_frame.data[1]; 
         if (!dc.dwait) begin next_state = HALT_0; next_halt_count = halt_count + 1; end
     end
-    COUNT: begin
-      dc.dWEN = 1; dc.daddr = 32'h3100; dc.dstore = hit_count;
-      if (!dc.dwait) begin 
+    COUNT: begin 
         next_count_written = 1;
         next_state = IDLE;
-      end
     end
     default: begin end 
+  endcase 
+end // end_always_comb
+
+// COHERENCE COMB BLOCK
+always_comb begin
+  dc.ccwrite = 0;
+  dc.cctrans = 0;
+
+  casez(state)
+
+    default: begin end
   endcase
 
-end // end_always_comb
+
+end
+
+
 endmodule

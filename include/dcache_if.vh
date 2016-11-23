@@ -21,17 +21,17 @@ interface dcache_if;
   // hit and enable
   logic               dhit, dwait, flushed, halt;
   // instruction addr
-  word_t             dmemload, dload, daddr, dmemstore, dmemaddr, dstore;
+  word_t             dmemload, dload, daddr, dmemstore, dmemaddr, dstore, ccsnoopaddr;
 
 // Dcache signals
   // hit, atomic and enables
-  logic               dmemREN, dmemWEN, dREN, dWEN;
+  logic               dmemREN, dmemWEN, dREN, dWEN, ccinv, ccwait, ccwrite, cctrans;
   // data and address
 
   // datapath ports
   modport ic (
-    input   dmemREN, dmemWEN,  dload, dwait, dmemaddr, dmemstore, halt, 
-    output  dmemload, dREN, dWEN, daddr, dhit, flushed, dstore
+    input   dmemREN, dmemWEN,  dload, dwait, dmemaddr, dmemstore, halt, ccinv, ccwait, ccsnoopaddr, 
+    output  dmemload, dREN, dWEN, daddr, dhit, flushed, dstore, ccwrite, cctrans
   );
 
 endinterface
