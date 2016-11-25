@@ -40,7 +40,7 @@ typedef enum logic[3:0] {
   WRITEBACK_0, WRITEBACK_1,
   WRITE_MISS_CLEAN,
   HALT_0, HALT_1,
-  COUNT, SNOOP_0, SNOOP_1
+  FLUSHED, SNOOP_0, SNOOP_1
 } dstate_t;
 
   typedef struct packed {
@@ -85,7 +85,7 @@ logic next_snoop_dirty, next_halt_dirty, next_snoop_valid, write_wait; logic sno
 */
 // OUTPUTS
  // dc.dhit dc.dREN dc.dWEN dc.daddr dc.dstore dc.dmemload
- assign dc.dhit     = (readhit || (writehit && !write_wait) );
+ assign dc.dhit     = (readhit || (writehit && !write_wait) ) && (state==IDLE);
  assign dc.dmemload = sets[index][match1].data[blkoff];
  assign dc.flushed  = (count_written); 
  
@@ -114,6 +114,7 @@ always_comb begin
   index = daddr_in.idx;
   if(state==SNOOP_0) index = snoop_in.idx;
   if(state==SNOOP_1) index = snoop_in.idx;
+  if(state==HALT_1)  index = halt_idx; 
 end
   //assign index      = daddr_in.idx;
   
@@ -162,22 +163,15 @@ always_ff @(posedge CLK, negedge nRST) begin
     hit_count     <= next_hit_count;
     count_written <= next_count_written;
     prev_state    <= state;
-  //  if(state==SNOOP_0||state==SNOOP_1)
-  //  begin
-  //    sets[snoop_in.idx][snoop_match1].valid <= next_snoop_valid;
-  //    sets[snoop_in.idx][snoop_match1].dirty <= next_snoop_dirty;
-  //  end
-    if(state==HALT_1) sets[halt_idx][halt_count[0]].dirty <= 0;
-    else     sets[index]   <= next_set;
+    //if(state==HALT_1) sets[halt_idx][halt_count[0]].dirty <= 0;
+    //else     
+    sets[index]   <= next_set;
 
     
   end
 end // end always_ff
 
 always_comb begin
-  next_snoop_valid = sets[snoop_in.idx][snoop_match1].valid;
-  next_snoop_dirty = sets[snoop_in.idx][snoop_match1].dirty;
-  next_halt_dirty  = sets[halt_idx][halt_count[0]].dirty;
   dc.cctrans = 0;
   next_set   = sets[index];
   next_LRU   = LRU[index];
@@ -189,23 +183,20 @@ always_comb begin
   dc.dstore = dc.dmemstore;
   next_hit_count = hit_count;
   next_count_written = count_written;
-  write_wait = 0;
+  
+  write_wait = 1;
+  
   casez (state)
     IDLE: begin
+      if (readhit) begin next_LRU = match0; end// if it maches 0, LRU is tag 1
       if (dc.ccwait) begin next_state = SNOOP_0; end
-      else if (dc.halt) begin
-        if (halt_count < 16) begin next_state  = HALT_0; end
-      end
-      else if (readhit) begin
-        next_LRU = match0; // if it maches 0, LRU is tag 1
-        if(prev_state==IDLE) next_hit_count = hit_count + 1;
-      end
+      else if (dc.halt) begin if (halt_count < 16) begin next_state  = HALT_0; end end
       else if (read_tag_miss_clean) next_state = LOAD_0;
       else if (read_tag_miss_dirty) next_state = WRITEBACK_0; 
       else if (writehit) begin
-        if(!sets[index][!match0].dirty) begin 
-          dc.cctrans=1; write_wait = 1;
-          if(!dc.dwait) begin
+        if(!sets[index][match1].dirty) begin
+          dc.cctrans=1;
+          if(!dc.dwait) begin // NEED COHERENCE TO INVALIDATE THE OTHER GUY!
             write_wait = 0;
             if (match0) begin next_set[0].data[blkoff] = dc.dmemstore; next_set[0].dirty = 1; end
             if (match1) begin next_set[1].data[blkoff] = dc.dmemstore; next_set[1].dirty = 1; end
@@ -213,6 +204,7 @@ always_comb begin
           end
         end
         else begin //dirty on dirty
+          write_wait = 0; // ALL GOOD TO GIVE A DHIT SINCE memory will be updated!
           if (match0) begin next_set[0].data[blkoff] = dc.dmemstore; next_set[0].dirty = 1; end
           if (match1) begin next_set[1].data[blkoff] = dc.dmemstore; next_set[1].dirty = 1; end
           next_LRU = match0;
@@ -226,6 +218,7 @@ always_comb begin
       if (!dc.dwait) begin
         next_state = LOAD_1;
         next_set[lru].data[0] = dc.dload;
+        next_set[lru].valid = 0; next_set[lru].dirty = 0;
       end
     if (dc.ccwait) begin next_state = SNOOP_0; end
     end
@@ -249,8 +242,8 @@ always_comb begin
       dc.dWEN = 1; dc.daddr = lru_addr + 4; dc.dstore = lru_frame.data[1];
       if (!dc.dwait) begin
         next_state = LOAD_0;
+        next_set[lru].dirty = 0;
         if (write_tag_miss_dirty) begin
-          next_set[lru].dirty = 0;
           next_state = WRITE_MISS_CLEAN;
         end
       end
@@ -270,31 +263,31 @@ always_comb begin
       if (dc.ccwait) begin next_state = SNOOP_0; end
     end
     HALT_0: begin
-      if (halt_count == 16) next_state = COUNT;
+      if (halt_count == 16) next_state = FLUSHED;
       else if (halt_frame.dirty) begin 
-        dc.dWEN = 1; dc.dREN = 0; dc.daddr = halt_addr; dc.dstore = halt_frame.data[0]; 
+        dc.dWEN = 1; dc.daddr = halt_addr; dc.dstore = halt_frame.data[0]; 
         if (!dc.dwait) next_state = HALT_1;
       end
       else begin
-        next_state = HALT_0;
+        next_state = HALT_0; next_set[halt_count[0]].valid =0; next_set[halt_count[0]].dirty=0;
         next_halt_count = halt_count + 1;
       end
       if (dc.ccwait) begin next_state = SNOOP_0; end
     end
     HALT_1: begin
         dc.dWEN = 1; dc.daddr = halt_addr+4; dc.dstore = halt_frame.data[1]; 
-        if (!dc.dwait) begin next_state = HALT_0; next_halt_count = halt_count + 1;  next_halt_dirty=0; end
+        if (!dc.dwait) begin next_state = HALT_0; next_halt_count = halt_count + 1;  
+          next_set[halt_count[0]].valid=0; next_set[halt_count[0]].dirty = 0; 
+        end
     end
-    COUNT: begin 
-        next_count_written = 1;
-    end
+    FLUSHED: begin next_count_written = 1; end
     SNOOP_0: begin
       dc.dstore = snoop_frame.data[0];
       dc.daddr  = snoop_frame.data[1];
       if(snoop_match) begin 
         if(dc.ccinv) begin 
           next_set[snoop_match1].valid = 0; next_set[snoop_match1].dirty=0;
-          next_snoop_valid=0; next_snoop_dirty=0; next_state=IDLE; 
+          next_state=IDLE; 
         end
         if(!dc.dwait) begin next_state = SNOOP_1; end;
       end
@@ -304,13 +297,10 @@ always_comb begin
     SNOOP_1: begin
       dc.dstore = snoop_frame.data[1];
       dc.daddr  = snoop_frame.data[0];
-      if(snoop_match) begin
-        if(!dc.dwait) begin
-          if (dc.ccinv) begin  next_set[snoop_match1].valid=0; next_snoop_valid=0; end
-          next_snoop_dirty = 0;
-          next_set[snoop_match1].dirty = 0;
-          next_state = IDLE;
-        end
+      if(!dc.dwait) begin
+        if (dc.ccinv) begin  next_set[snoop_match1].valid=0; end
+        next_set[snoop_match1].dirty = 0;
+        next_state = IDLE;
       end
     end
 

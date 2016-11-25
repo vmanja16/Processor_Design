@@ -46,13 +46,22 @@ The coherence control must run through the following operations:
 First, it decides on a memory request to work on from one of the two caches. 
 Then, it will take the memory request and send the snoop address to the other cache. 
 Once the other cache does the coherence operation, either write back or invalidate, 
-the coherence control lets the requesting cache block continue with the original memory request.
 
 
-write: 0 , trans: 0 --> Do nothing
-write: 0,  trans: 1 --> BusRd
-write: 1,  trans: 0 --> Invalidate if necessary
-write: 1,  trans: 1 --> Standard Writeback
+General workflow for READING:
+
+Cycle 1:
+  Cache 1: Makes request and goes to : LOAD0/WMC looking to read 
+  Controller -> Goes to Snoop state to assert ccwait on cache2
+  Cache 2: Gets the ccwait from controller
+Cycle 2:
+  Cache 1: Receives data from either cache2::SNOOP0 or from memory
+  Controller: Grabs data from either memory or cache2::SNOOP0
+              if from cache2: Writes back the data at the same time
+  Cache 2: Sends data from SNOOP0 if snoophit // may also have already flushed(won't send)
+Cycle 3: if snoophit, cache2::SNOOP1 gives the data for word2
+
+Replacement/Halt writebacks are snoop independent.
 
 // write: Implies that the ccsnoopaddr is available in the requestee cache
 
@@ -67,9 +76,9 @@ coherence_state_t state, next_state;
 
 logic select; // selects which cache's arbitration signals to send
 
-logic requestor, next_requestor, rec, writer, next_writer;
+logic requestor, next_requestor, rec;
 logic snoop_hit;
-word_t next_wmc_data, wmc_data, next_wmc_addr, wmc_addr;
+
 /****************************************************************************************************************************
 //                                            COHERENCE
 /***************************************************************************************************************************/
@@ -79,8 +88,6 @@ always_ff @ (posedge CLK, negedge nRST) begin
   else       begin 
     state     <= next_state; 
     requestor <= next_requestor; 
-    wmc_data <= next_wmc_data;
-    wmc_addr <= next_wmc_addr;
   end
 
 end // end always_ff
@@ -96,8 +103,6 @@ assign ccif.ccsnoopaddr[1] = ccif.daddr[0];
 always_comb begin
   next_state     = state;
   next_requestor = requestor; // requestor
-  next_wmc_addr = wmc_addr;
-  next_wmc_data = wmc_data;
   ccif.dwait[0]  = 1;
   ccif.dwait[1]  = 1;
   ccif.ccwait[0] = 0;
@@ -204,9 +209,11 @@ always_comb begin
       ccif.dwait[requestor] = cocif.wait_in;   
       if (!cocif.wait_in) begin next_state = IDLE;   next_requestor = !requestor; end 
     end
+
+
 //  INVALIDATE_0-1 take care of Requestor Writehit_clean->rec invalidation
 
-    INVALIDATE_0: begin // This state is literally just to snoop lol
+    INVALIDATE_0: begin // This state is literally just to snoop
       //ccif.ccinv[rec] = 1;
       ccif.ccwait[rec] = 1;
       next_state = INVALIDATE_1;
