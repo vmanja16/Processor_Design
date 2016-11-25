@@ -40,7 +40,7 @@ typedef enum logic[3:0] {
   WRITEBACK_0, WRITEBACK_1,
   WRITE_MISS_CLEAN,
   HALT_0, HALT_1,
-  COUNT
+  COUNT, SNOOP_0, SNOOP_1
 } dstate_t;
 
   typedef struct packed {
@@ -67,10 +67,10 @@ logic [2:0] halt_idx;
 word_t hit_count, next_hit_count;
 logic count_written, next_count_written;
 
-logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_miss_clean, write_tag_miss_dirty, snoophit;
+logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_miss_clean, write_tag_miss_dirty, snoop_match;
 logic snoop_match1, snoop_match0;
 
-logic inv;
+logic next_snoop_dirty, next_halt_dirty, next_snoop_valid, write_wait; logic snoop_enable;;
 
 
 /*
@@ -85,14 +85,14 @@ logic inv;
 */
 // OUTPUTS
  // dc.dhit dc.dREN dc.dWEN dc.daddr dc.dstore dc.dmemload
- assign dc.dhit     = (readhit || writehit);
+ assign dc.dhit     = (readhit || (writehit && !write_wait) );
  assign dc.dmemload = sets[index][match1].data[blkoff];
  assign dc.flushed  = (count_written); 
  
 // COHERENCE
-  assign dc.ccwrite = snoophit && snoop_frame.dirty;
-  assign snoophit = (snoop_match0 ) || ( snoop_match1  );
-  assign snoop_match0 = (sets[snoop_in.idx][1].valid) && (snoop_in.tag == sets[snoop_in.idx][0].tag);
+  assign dc.ccwrite = snoop_match && snoop_frame.dirty;
+  assign snoop_match = (snoop_match0 ) || ( snoop_match1  );
+  assign snoop_match0 = (sets[snoop_in.idx][0].valid) && (snoop_in.tag == sets[snoop_in.idx][0].tag);
   assign snoop_match1 = (sets[snoop_in.idx][1].valid) && (snoop_in.tag == sets[snoop_in.idx][1].tag);
   assign snoop_in.blkoff = dc.ccsnoopaddr[2];
   assign snoop_in.idx    = dc.ccsnoopaddr[5:3];
@@ -100,7 +100,6 @@ logic inv;
   assign snoop_frame     = sets[snoop_in.idx][!snoop_match0];
 
 
-  assign inv = (dc.ccwrite && dc.ccwait) || (snoophit && dc.ccinv); // first term is a read, second is a write
  // dc signals assigned in combinational block
 
 // cc.write = snoop_address match!
@@ -111,8 +110,13 @@ logic inv;
   assign daddr_in.idx    = dc.dmemaddr[5:3];
   assign daddr_in.tag    = dc.dmemaddr[31:6];
 
-
-  assign index      = daddr_in.idx;
+always_comb begin
+  index = daddr_in.idx;
+  if(state==SNOOP_0) index = snoop_in.idx;
+  if(state==SNOOP_1) index = snoop_in.idx;
+end
+  //assign index      = daddr_in.idx;
+  
   assign blkoff     = daddr_in.blkoff;
   assign frame0     = sets[index][0];
   assign frame1     = sets[index][1];
@@ -148,19 +152,33 @@ always_ff @(posedge CLK, negedge nRST) begin
       count_written <= 0;
       prev_state <= IDLE;
 
-  end 
+  end
+  else if (count_written) begin sets <= '{default:'0}; end
   else begin
-    sets[index]   <= next_set;
+
     LRU[index]    <= next_LRU;
     state         <= next_state;
     halt_count    <= next_halt_count;
     hit_count     <= next_hit_count;
     count_written <= next_count_written;
     prev_state    <= state;
+  //  if(state==SNOOP_0||state==SNOOP_1)
+  //  begin
+  //    sets[snoop_in.idx][snoop_match1].valid <= next_snoop_valid;
+  //    sets[snoop_in.idx][snoop_match1].dirty <= next_snoop_dirty;
+  //  end
+    if(state==HALT_1) sets[halt_idx][halt_count[0]].dirty <= 0;
+    else     sets[index]   <= next_set;
+
+    
   end
 end // end always_ff
 
 always_comb begin
+  next_snoop_valid = sets[snoop_in.idx][snoop_match1].valid;
+  next_snoop_dirty = sets[snoop_in.idx][snoop_match1].dirty;
+  next_halt_dirty  = sets[halt_idx][halt_count[0]].dirty;
+  dc.cctrans = 0;
   next_set   = sets[index];
   next_LRU   = LRU[index];
   next_state = state;
@@ -171,10 +189,12 @@ always_comb begin
   dc.dstore = dc.dmemstore;
   next_hit_count = hit_count;
   next_count_written = count_written;
+  write_wait = 0;
   casez (state)
     IDLE: begin
-      if (dc.halt) begin
-        if (halt_count < 16) next_state  = HALT_0;
+      if (dc.ccwait) begin next_state = SNOOP_0; end
+      else if (dc.halt) begin
+        if (halt_count < 16) begin next_state  = HALT_0; end
       end
       else if (readhit) begin
         next_LRU = match0; // if it maches 0, LRU is tag 1
@@ -183,10 +203,20 @@ always_comb begin
       else if (read_tag_miss_clean) next_state = LOAD_0;
       else if (read_tag_miss_dirty) next_state = WRITEBACK_0; 
       else if (writehit) begin
-        if (match0) begin next_set[0].data[blkoff] = dc.dmemstore; next_set[0].dirty = 1; end
-        if (match1) begin next_set[1].data[blkoff] = dc.dmemstore; next_set[1].dirty = 1; end
-        next_LRU = match0;
-        if(prev_state==IDLE) next_hit_count = hit_count + 1;
+        if(!sets[index][!match0].dirty) begin 
+          dc.cctrans=1; write_wait = 1;
+          if(!dc.dwait) begin
+            write_wait = 0;
+            if (match0) begin next_set[0].data[blkoff] = dc.dmemstore; next_set[0].dirty = 1; end
+            if (match1) begin next_set[1].data[blkoff] = dc.dmemstore; next_set[1].dirty = 1; end
+            next_LRU = match0;
+          end
+        end
+        else begin //dirty on dirty
+          if (match0) begin next_set[0].data[blkoff] = dc.dmemstore; next_set[0].dirty = 1; end
+          if (match1) begin next_set[1].data[blkoff] = dc.dmemstore; next_set[1].dirty = 1; end
+          next_LRU = match0;
+        end        
       end
       else if (write_tag_miss_clean) next_state = WRITE_MISS_CLEAN;
       else if (write_tag_miss_dirty) next_state = WRITEBACK_0;
@@ -197,6 +227,7 @@ always_comb begin
         next_state = LOAD_1;
         next_set[lru].data[0] = dc.dload;
       end
+    if (dc.ccwait) begin next_state = SNOOP_0; end
     end
     LOAD_1: begin
       dc.dREN = 1; dc.daddr = dc.dmemaddr + (blkoff ? 0 : 4);
@@ -212,17 +243,20 @@ always_comb begin
     WRITEBACK_0: begin
       dc.dWEN = 1; dc.daddr = lru_addr;    dc.dstore = lru_frame.data[0];
       if (!dc.dwait) next_state = WRITEBACK_1;
+      if (dc.ccwait) begin next_state = SNOOP_0; end
     end
     WRITEBACK_1: begin
       dc.dWEN = 1; dc.daddr = lru_addr + 4; dc.dstore = lru_frame.data[1];
       if (!dc.dwait) begin
         next_state = LOAD_0;
         if (write_tag_miss_dirty) begin
+          next_set[lru].dirty = 0;
           next_state = WRITE_MISS_CLEAN;
         end
       end
     end
     WRITE_MISS_CLEAN: begin
+      dc.cctrans = 1;
       dc.dREN = 1; dc.daddr = dc.dmemaddr + (blkoff ? -4 : 4);
       if (!dc.dwait) begin
         next_set[lru].data[blkoff]  = dc.dmemstore; // write to word from DP
@@ -233,6 +267,7 @@ always_comb begin
         next_state                  = IDLE;
         next_LRU = !lru;
       end
+      if (dc.ccwait) begin next_state = SNOOP_0; end
     end
     HALT_0: begin
       if (halt_count == 16) next_state = COUNT;
@@ -244,31 +279,46 @@ always_comb begin
         next_state = HALT_0;
         next_halt_count = halt_count + 1;
       end
+      if (dc.ccwait) begin next_state = SNOOP_0; end
     end
     HALT_1: begin
         dc.dWEN = 1; dc.daddr = halt_addr+4; dc.dstore = halt_frame.data[1]; 
-        if (!dc.dwait) begin next_state = HALT_0; next_halt_count = halt_count + 1; end
+        if (!dc.dwait) begin next_state = HALT_0; next_halt_count = halt_count + 1;  next_halt_dirty=0; end
     end
     COUNT: begin 
         next_count_written = 1;
-        next_state = IDLE;
     end
+    SNOOP_0: begin
+      dc.dstore = snoop_frame.data[0];
+      dc.daddr  = snoop_frame.data[1];
+      if(snoop_match) begin 
+        if(dc.ccinv) begin 
+          next_set[snoop_match1].valid = 0; next_set[snoop_match1].dirty=0;
+          next_snoop_valid=0; next_snoop_dirty=0; next_state=IDLE; 
+        end
+        if(!dc.dwait) begin next_state = SNOOP_1; end;
+      end
+      else begin next_state = IDLE; end
+      if(!dc.ccwait) begin next_state = IDLE; end;  
+    end
+    SNOOP_1: begin
+      dc.dstore = snoop_frame.data[1];
+      dc.daddr  = snoop_frame.data[0];
+      if(snoop_match) begin
+        if(!dc.dwait) begin
+          if (dc.ccinv) begin  next_set[snoop_match1].valid=0; next_snoop_valid=0; end
+          next_snoop_dirty = 0;
+          next_set[snoop_match1].dirty = 0;
+          next_state = IDLE;
+        end
+      end
+    end
+
     default: begin end 
   endcase 
 end // end_always_comb
 
-// COHERENCE COMB BLOCK
-always_comb begin
-  dc.ccwrite = 0;
-  dc.cctrans = 0;
 
-  casez(state)
-
-    default: begin end
-  endcase
-
-
-end
 
 
 endmodule

@@ -64,7 +64,7 @@ assign dcif.dmemload = dc.dmemload;
 
 
 // Replaceable code
-assign cif.cctrans = cif.cctrans;
+assign cif.cctrans = dc.cctrans;
 assign cif.ccwrite = dc.ccwrite;
 
 endmodule
