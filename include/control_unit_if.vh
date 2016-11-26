@@ -15,7 +15,7 @@ interface control_unit_if;
   import cpu_types_pkg::*;
   
 //  RU/caches
-  logic cpu_halt, dREN, dWEN;
+  logic cpu_halt, dREN, dWEN, datomic;
   word_t imemload;
 
 // Muxes  
@@ -43,7 +43,7 @@ interface control_unit_if;
   // control_unit ports
   modport cu (
     input   imemload,
-    output  cpu_halt, dREN, dWEN, alusrc, wdatsel, WEN, wsel, pc_select, jump_data, immediate, lui_word, aluop
+    output  cpu_halt, dREN, dWEN, alusrc, wdatsel, WEN, wsel, datomic, pc_select, jump_data, immediate, lui_word, aluop
   );
   // control_unit tb
   modport tb (

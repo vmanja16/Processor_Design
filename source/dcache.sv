@@ -64,7 +64,8 @@ logic blkoff, match0, match1, match, lru;
 word_t lru_addr, halt_addr;
 logic [4:0] halt_count, next_halt_count;
 logic [2:0] halt_idx;
-word_t hit_count, next_hit_count;
+word_t link_register, next_link_register;
+logic link_valid, next_link_valid;
 logic count_written, next_count_written;
 
 logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_miss_clean, write_tag_miss_dirty, snoop_match;
@@ -149,25 +150,22 @@ always_ff @(posedge CLK, negedge nRST) begin
       LRU        <= '{default:'0};
       state      <= IDLE;
       halt_count <= 0;
-      hit_count  <= 0;
       count_written <= 0;
       prev_state <= IDLE;
+      link_valid <= 0;
+      link_register <= 0;
 
   end
-  else if (count_written) begin sets <= '{default:'0}; end
+  else if (count_written) begin sets <= '{default:'0}; link_valid <=0; end
   else begin
-
+    sets[index]   <= next_set;
     LRU[index]    <= next_LRU;
     state         <= next_state;
     halt_count    <= next_halt_count;
-    hit_count     <= next_hit_count;
     count_written <= next_count_written;
     prev_state    <= state;
-    //if(state==HALT_1) sets[halt_idx][halt_count[0]].dirty <= 0;
-    //else     
-    sets[index]   <= next_set;
-
-    
+    link_valid    <= next_link_valid;
+    link_register <= next_link_register;  
   end
 end // end always_ff
 
@@ -181,9 +179,9 @@ always_comb begin
   dc.dWEN   = 0;
   dc.daddr  = dc.dmemaddr;
   dc.dstore = dc.dmemstore;
-  next_hit_count = hit_count;
   next_count_written = count_written;
-  
+  next_link_register = link_register;
+  next_link_valid = link_valid;
   write_wait = 1;
   
   casez (state)

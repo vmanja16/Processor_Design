@@ -53,6 +53,7 @@ assign dc.halt        = dcif.halt;
 assign dc.ccsnoopaddr = cif.ccsnoopaddr;
 assign dc.ccinv       = cif.ccinv;
 assign dc.ccwait      = cif.ccwait;
+assign dc.datomic     = dcif.datomic;
 
 assign cif.daddr     = dc.daddr;
 assign cif.dREN      = dc.dREN;
