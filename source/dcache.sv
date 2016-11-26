@@ -64,7 +64,7 @@ logic blkoff, match0, match1, match, lru;
 word_t lru_addr, halt_addr;
 logic [4:0] halt_count, next_halt_count;
 logic [2:0] halt_idx;
-word_t link_register, next_link_register;
+word_t link_address, next_link_address;
 logic link_valid, next_link_valid;
 logic count_written, next_count_written;
 
@@ -153,7 +153,7 @@ always_ff @(posedge CLK, negedge nRST) begin
       count_written <= 0;
       prev_state <= IDLE;
       link_valid <= 0;
-      link_register <= 0;
+      link_address <= 0;
 
   end
   else if (count_written) begin sets <= '{default:'0}; link_valid <=0; end
@@ -165,7 +165,7 @@ always_ff @(posedge CLK, negedge nRST) begin
     count_written <= next_count_written;
     prev_state    <= state;
     link_valid    <= next_link_valid;
-    link_register <= next_link_register;  
+    link_address <= next_link_address;  
   end
 end // end always_ff
 
@@ -180,13 +180,19 @@ always_comb begin
   dc.daddr  = dc.dmemaddr;
   dc.dstore = dc.dmemstore;
   next_count_written = count_written;
-  next_link_register = link_register;
+  next_link_address = link_address;
   next_link_valid = link_valid;
   write_wait = 1;
   
   casez (state)
     IDLE: begin
-      if (readhit) begin next_LRU = match0; end// if it maches 0, LRU is tag 1
+      if (readhit) begin 
+        next_LRU = match0; 
+        if(dc.datomic) begin 
+          next_link_valid = 1; 
+          next_link_address = dc.dmemaddr;
+        end
+      end// if it maches 0, LRU is tag 1
       if (dc.ccwait) begin next_state = SNOOP_0; end
       else if (dc.halt) begin if (halt_count < 16) begin next_state  = HALT_0; end end
       else if (read_tag_miss_clean) next_state = LOAD_0;
