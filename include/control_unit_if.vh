@@ -25,7 +25,6 @@ interface control_unit_if;
 // register
   logic WEN;
   regbits_t wsel;
-  word_t rdat2; // for stores
 
 
 // pc

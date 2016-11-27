@@ -122,6 +122,7 @@ always_comb begin
   index = daddr_in.idx;
   if(state==SNOOP_0) index = snoop_in.idx;
   if(state==SNOOP_1) index = snoop_in.idx;
+  if(state==HALT_0)  index = halt_idx;
   if(state==HALT_1)  index = halt_idx; 
 end
   //assign index      = daddr_in.idx;
@@ -203,7 +204,7 @@ always_comb begin
         end
       end// if it maches 0, LRU is tag 1
       if (dc.ccwait) begin next_state = SNOOP_0; end
-      else if (dc.halt) begin if (halt_count < 16) begin next_state  = HALT_0; end end
+      else if (dc.halt) begin if (halt_count < 16) next_state  = HALT_0; else next_state = FLUSHED; end
       else if (read_tag_miss_clean) next_state = LOAD_0;
       else if (read_tag_miss_dirty) next_state = WRITEBACK_0; 
       else if (write_atomic_fail) begin  atomic_val = 0;  atomic_hit = 1; end // SC RETURNS 0 on write_atomic_fail!

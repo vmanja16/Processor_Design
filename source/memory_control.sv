@@ -15,7 +15,7 @@
 
 module memory_control (
   input CLK, nRST,
-  cache_control_if.cc ccif
+  cache_control_if ccif
 );
   // type import
   import cpu_types_pkg::*;
@@ -80,9 +80,13 @@ always_ff @(posedge CLK, negedge nRST) begin
   end
 end
 
+assign ccif.iwait[0] = requestor  ? 1 : instruction_wait;
+assign ccif.iwait[1] = requestor  ? instruction_wait : 1;
+
 always_comb begin
-  ccif.iwait[!requestor] = 1;  
-  ccif.iwait[requestor] = instruction_wait;
+ // ccif.iwait[!requestor] = 1;  
+ // ccif.iwait[requestor] = instruction_wait;
+  next_requestor = requestor;
   if(!(instruction_wait||ccif.iREN[requestor])) next_requestor = !requestor; // change requestor!
   if(!ccif.iREN[requestor]) next_requestor = !requestor;
 end
@@ -96,7 +100,7 @@ assign ccif.iload[1] = ccif.ramload;
 
 // RAM outputs
 assign ccif.ramWEN   = cocif.ramWEN;
-assign ccif.ramREN   = (cocif.ramWEN) ? 1'b0 : (ccif.iREN[requestor]|cocif.ramREN);
+assign ccif.ramREN   = (cocif.ramWEN) ? 1'b0 : (ccif.iREN[requestor]||cocif.ramREN);
 assign ccif.ramstore = cocif.ramstore;
 assign ccif.ramaddr  = (cocif.ramREN||cocif.ramWEN) ? cocif.ramaddr : ccif.iaddr[requestor];
 

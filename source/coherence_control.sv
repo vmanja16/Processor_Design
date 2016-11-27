@@ -106,6 +106,8 @@ always_comb begin
   ccif.ccsnoopaddr[1] = ccif.daddr[0];
   ccif.dwait[0]  = 1;
   ccif.dwait[1]  = 1;
+  ccif.dload[0]  = 0;
+  ccif.dload[1]  = 0;
   ccif.ccwait[0] = 0;
   ccif.ccwait[1] = 0;
   ccif.ccinv[0]  = 0;
