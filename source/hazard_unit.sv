@@ -15,7 +15,7 @@ assign any_hit = huif.ihit || huif.dhit;
 
 //================== LOAD HAZARDS ===============//
 
-assign load_hazard =   (huif.idex_dREN_out) && 
+assign load_hazard =   (huif.idex_dREN_out||huif.idex_datomic_out) && 
    ( 
       (ifid_instr.rs == idex_instr.rt) || 
       (ifid_instr.rt == idex_instr.rt)  

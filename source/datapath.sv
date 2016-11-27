@@ -94,14 +94,14 @@ assign pcif.npc       = exmemif.npc_out;
 assign pcif.rdat1     = exmemif.rdat1_out;
 
 // ================HAZARDS!=============== //
-assign huif.ihit          = dpif.ihit;
-assign huif.dhit          = dpif.dhit;
-assign huif.ifid_imemload = ifidif.imemload_out;
-assign huif.idex_imemload = idexif.imemload_out;
-assign huif.idex_dREN_out = idexif.dREN_out;
-assign huif.pc_select     = exmemif.pc_select_out;
-assign huif.z_fl          = exmemif.z_fl_out; 
-
+assign huif.ihit               = dpif.ihit;
+assign huif.dhit               = dpif.dhit;
+assign huif.ifid_imemload      = ifidif.imemload_out;
+assign huif.idex_imemload      = idexif.imemload_out;
+assign huif.idex_dREN_out      = idexif.dREN_out;
+assign huif.pc_select          = exmemif.pc_select_out;
+assign huif.z_fl               = exmemif.z_fl_out; 
+assign huif.idex_datomic_out   = idexif.datomic_out;
 // ================FORWARDING!=============== //
 assign fuif.exmem_WEN    = exmemif.WEN_out;
 assign fuif.exmem_wsel   = exmemif.wsel_out;

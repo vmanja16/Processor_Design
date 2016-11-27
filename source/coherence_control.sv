@@ -36,7 +36,7 @@ module coherence_control (
             // ram outputs
             ramstore, ramaddr, cocif.ramWEN, cocif.ramREN,
             // coherence outputs to cache
-            ccwait, ccinv, ccccsnoopaddr
+            ccwait, ccinv, ccsnoopaddr
   );
 */
 
@@ -97,12 +97,13 @@ assign rec = !requestor;
 assign snoop_hit  = ccif.ccwrite[rec];
 
 // Coherence combinational logic
-assign ccif.ccsnoopaddr[0] = ccif.daddr[1];
-assign ccif.ccsnoopaddr[1] = ccif.daddr[0];
+
 
 always_comb begin
   next_state     = state;
   next_requestor = requestor; // requestor
+  ccif.ccsnoopaddr[0] = ccif.daddr[1];
+  ccif.ccsnoopaddr[1] = ccif.daddr[0];
   ccif.dwait[0]  = 1;
   ccif.dwait[1]  = 1;
   ccif.ccwait[0] = 0;
@@ -179,6 +180,9 @@ always_comb begin
       end
       else begin
         ccif.ccinv[rec] = 1; 
+
+        ccif.ccsnoopaddr[rec] = {ccif.daddr[requestor][31:3], !ccif.daddr[requestor][2], 2'b00}; // FOR LINK MATCHING
+        
         cocif.ramREN = 1; cocif.ramaddr = ccif.daddr[requestor]; ccif.dload[requestor]=ccif.ramload;
         ccif.dwait[requestor] = cocif.wait_in;   
         if (!cocif.wait_in) begin next_state = IDLE; next_requestor = !requestor; end
@@ -188,6 +192,9 @@ always_comb begin
     WRITE_MISS_CLEAN_1: begin
       ccif.ccwait[rec] = 1;
       ccif.ccinv[rec]  = 1;
+
+      ccif.ccsnoopaddr[rec] = {ccif.daddr[requestor][31:3], !ccif.daddr[requestor][2], 2'b00}; // FOR LINK MATCHING
+      
       cocif.ramWEN = 1; cocif.ramstore = ccif.dstore[rec]; cocif.ramaddr = {ccif.daddr[requestor][31:3],3'b100};
       ccif.dload[requestor] = ccif.daddr[requestor][2] ? ccif.dstore[rec] : ccif.daddr[rec];
       ccif.dwait[requestor] = cocif.wait_in; ccif.dwait[rec] = cocif.wait_in;

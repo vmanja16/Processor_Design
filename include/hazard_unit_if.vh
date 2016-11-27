@@ -19,7 +19,7 @@ word_t ifid_imemload;
 
 // from idex
 word_t idex_imemload;
-logic idex_dREN_out;
+logic idex_dREN_out, idex_datomic_out;
 
 // from exmem
 logic z_fl;
@@ -37,7 +37,7 @@ logic exmem_enable, exmem_flush, memwb_enable, memwb_flush;
   // hazard unit ports
   modport hu (
     input   ihit, dhit, ifid_imemload, idex_imemload,
-            idex_dREN_out, z_fl, pc_select,
+            idex_dREN_out, z_fl, pc_select, idex_datomic_out,
     output  ifid_enable, ifid_flush, idex_enable, idex_flush, 
             pc_enable, exmem_enable, exmem_flush, memwb_enable, 
             memwb_flush
