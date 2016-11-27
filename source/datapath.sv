@@ -55,7 +55,7 @@ module datapath (
   // Map Control Unit
   control_unit CF (CLK, nRST, cuif);
   // Map PC
-  pc PROGRAM_COUNTER (CLK, nRST, pcif);
+  pc  #(.PC_INIT(PC_INIT)) PROGRAM_COUNTER(CLK, nRST, pcif);
   // Map IFID
   ifid IFID (CLK, nRST, ifidif);
   // Map IDEX
@@ -72,7 +72,7 @@ module datapath (
 //dpif IO
  //   input   ihit, imemload, dhit, dmemload,
  //   output  halt, imemREN, imemaddr, dmemREN, dmemWEN, datomic,
- //            dmemstore, dmemaddr
+ //            dmemstore, dmemaddr, datomic
 
 // internals
   r_t instr; word_t next_pc, current_pc, pc4;
@@ -94,14 +94,14 @@ assign pcif.npc       = exmemif.npc_out;
 assign pcif.rdat1     = exmemif.rdat1_out;
 
 // ================HAZARDS!=============== //
-assign huif.ihit          = dpif.ihit;
-assign huif.dhit          = dpif.dhit;
-assign huif.ifid_imemload = ifidif.imemload_out;
-assign huif.idex_imemload = idexif.imemload_out;
-assign huif.idex_dREN_out = idexif.dREN_out;
-assign huif.pc_select     = exmemif.pc_select_out;
-assign huif.z_fl          = exmemif.z_fl_out; 
-
+assign huif.ihit               = dpif.ihit;
+assign huif.dhit               = dpif.dhit;
+assign huif.ifid_imemload      = ifidif.imemload_out;
+assign huif.idex_imemload      = idexif.imemload_out;
+assign huif.idex_dREN_out      = idexif.dREN_out;
+assign huif.pc_select          = exmemif.pc_select_out;
+assign huif.z_fl               = exmemif.z_fl_out; 
+assign huif.idex_datomic_out   = idexif.datomic_out;
 // ================FORWARDING!=============== //
 assign fuif.exmem_WEN    = exmemif.WEN_out;
 assign fuif.exmem_wsel   = exmemif.wsel_out;
@@ -150,6 +150,7 @@ assign idexif.wsel_in      = cuif.wsel;
 assign idexif.WEN_in       = cuif.WEN;
 assign idexif.lui_word_in  = cuif.lui_word;
 assign idexif.pc_select_in = cuif.pc_select;
+assign idexif.datomic_in   = cuif.datomic;
 
 
 //Passed from IFID latch
@@ -182,6 +183,7 @@ assign exmemif.npc_in       = idexif.npc_out;
 assign exmemif.imemload_in  = idexif.imemload_out;
 assign exmemif.rdat1_in     = fuif.rdat1_out;
 assign exmemif.rdat2_in     = fuif.rdat2_out;
+assign exmemif.datomic_in   = idexif.datomic_out;
 
 
 
@@ -204,7 +206,7 @@ assign memwbif.npc_in      = exmemif.npc_out;
 assign dpif.imemREN   = !(dpif.halt||dpif.dmemREN||dpif.dmemWEN);
 assign dpif.dmemREN   = exmemif.dREN_out && (!dpif.halt);
 assign dpif.dmemWEN   = exmemif.dWEN_out && (!dpif.halt);
-assign dpif.datomic   = 0; // what is this?
+assign dpif.datomic   = exmemif.datomic_out;
 assign dpif.dmemstore = exmemif.rdat2_out;
 assign dpif.dmemaddr  = exmemif.port_o_out;
 

@@ -13,7 +13,7 @@ module control_unit(input CLK, nRST, control_unit_if.cu cuif);
   cpu_halt, dREN, dWEN,  
   wdatsel, WEN, wsel, 
   pc_select, lui_word, 
-  aluop, immediate, alusrc
+  aluop, immediate, alusrc, datomic
   ); 
 */
 
@@ -33,8 +33,8 @@ assign extended_shamt = {27'h0, r_instr.shamt};
 
 // Begin Ouputs
 assign cuif.lui_word  = { cuif.imemload[15:0], 16'h0 }; // left shifted word
-assign cuif.dWEN      = (instr.opcode == SW) ? 1 : 0; // assert DWEN on SW only
-assign cuif.dREN      = (instr.opcode == LW) ? 1 : 0; // assert dREN on LW only
+assign cuif.dWEN      = ((instr.opcode == SW)||(instr.opcode == SC)) ? 1 : 0; // assert DWEN on SW only
+assign cuif.dREN      = ((instr.opcode == LW)||(instr.opcode == LL)) ? 1 : 0; // assert dREN on LW only
 assign cuif.cpu_halt  = (instr.opcode == HALT) ? 1 : 0;
 
 always_comb begin
@@ -48,6 +48,7 @@ cuif.wdatsel = PORT_O; // overwritten on LUI, JAL, LW
 cuif.WEN  = 0; // not overwritten JR, branches, SW 
 cuif.wsel = i_instr.rt; // overwritten on JAL, RTYPE
 cuif.alusrc = 0; // 1 for immediates, 0 for rdat2
+cuif.datomic = 0;
 // OPCODES
 casez(instr.opcode)
 //================= J-TYPE!============================= 
@@ -127,9 +128,23 @@ casez(instr.opcode)
     cuif.wdatsel = DMEMLOAD;
     cuif.WEN     = 1;
   end
+  LL: begin
+    cuif.aluop = ALU_ADD;
+    cuif.alusrc = 1;
+    cuif.wdatsel = DMEMLOAD;
+    cuif.WEN = 1;
+    cuif.datomic = 1;
+  end
   SW: begin 
     cuif.aluop  = ALU_ADD;
     cuif.alusrc = 1;
+  end
+  SC: begin
+    cuif.aluop = ALU_ADD;
+    cuif.alusrc = 1;
+    cuif.wdatsel = DMEMLOAD;
+    cuif.WEN = 1;
+    cuif.datomic = 1;
   end
   HALT: begin 
     cuif.pc_select = PC_HALT;

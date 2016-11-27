@@ -31,6 +31,7 @@ module exmem (input CLK, nRST, exmem_if.ex exmemif);
        exmemif.z_fl_out      <= 0;
        exmemif.lui_word_out  <= 0;
        exmemif.pc_select_out <= NEXT;
+       exmemif.datomic_out   <= 0;
        
     end // if (nRST==0)
 
@@ -49,7 +50,7 @@ module exmem (input CLK, nRST, exmem_if.ex exmemif);
        exmemif.z_fl_out      <= 0;
        exmemif.lui_word_out  <= 0;
        exmemif.pc_select_out <= NEXT;
-       
+       exmemif.datomic_out   <= 0;
     end
     
     else if (exmemif.enable) begin
@@ -67,6 +68,7 @@ module exmem (input CLK, nRST, exmem_if.ex exmemif);
        exmemif.z_fl_out      <= exmemif.z_fl_in;
        exmemif.lui_word_out  <= exmemif.lui_word_in;
        exmemif.pc_select_out <= exmemif.pc_select_in;
+       exmemif.datomic_out   <= exmemif.datomic_in;
     end
      
 

@@ -43,13 +43,17 @@ assign cif.iREN      = ic.iREN;
 assign dcif.ihit     = ic.ihit;
 
 
-assign dc.dmemaddr = dcif.dmemaddr;
-assign dc.dload    = cif.dload;
-assign dc.dmemREN  = dcif.dmemREN;
-assign dc.dmemWEN  = dcif.dmemWEN;
-assign dc.dmemstore= dcif.dmemstore;
-assign dc.dwait    = cif.dwait;
-assign dc.halt     = dcif.halt;
+assign dc.dmemaddr    = dcif.dmemaddr;
+assign dc.dload       = cif.dload;
+assign dc.dmemREN     = dcif.dmemREN;
+assign dc.dmemWEN     = dcif.dmemWEN;
+assign dc.dmemstore   = dcif.dmemstore;
+assign dc.dwait       = cif.dwait;
+assign dc.halt        = dcif.halt;
+assign dc.ccsnoopaddr = cif.ccsnoopaddr;
+assign dc.ccinv       = cif.ccinv;
+assign dc.ccwait      = cif.ccwait;
+assign dc.datomic     = dcif.datomic;
 
 assign cif.daddr     = dc.daddr;
 assign cif.dREN      = dc.dREN;
@@ -60,29 +64,8 @@ assign dcif.flushed  = dc.flushed;
 assign dcif.dmemload = dc.dmemload;
 
 
-// time to do nonsense
-
-
-  // icache
-//  icache  ICACHE(CLK, nRST, dcif, cif); // needs imemREN, dmemREN, dmemWEN, out: ihit imemload
-  // dcache
- // dcache  DCACHE(CLK, nRST, dcif, cif); // needs dmemREN, dmemWEN, dstore, daddr; out: dhit, dmemload, flushed, cif:
-
-
-
-  //assign cif.dREN   = dcif.dmemREN;
-  //assign cif.dWEN   = dcif.dmemWEN;
-  //assign cif.dstore = dcif.dmemstore;
-  //assign cif.daddr  = dcif.dmemaddr;
-  //assign dcif.dhit = (dcif.dmemREN|dcif.dmemWEN) ? ~cif.dwait : 0;
-  //assign dcif.dmemload = cif.dload;
-  //assign dcif.flushed = dcif.halt;
-
-//assign dcif.ihit = (dcif.imemREN) ? ~cif.iwait : 0;  
-//assign dcif.imemload = cif.iload;
-//assign cif.iREN = dcif.imemREN;
-//assign cif.iaddr  = dcif.imemaddr;
-
-
+// Replaceable code
+assign cif.cctrans = dc.cctrans;
+assign cif.ccwrite = dc.ccwrite;
 
 endmodule

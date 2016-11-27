@@ -33,6 +33,7 @@ module idex (input CLK, nRST, idex_if.id idexif);
        idexif.WEN_out       <= 0;
        idexif.lui_word_out <= 0;
        idexif.pc_select_out <= NEXT;
+       idexif.datomic_out <= 0;
     end
    else if (idexif.flush) begin
       idexif.imemload_out <= 0; // 0 on nRST
@@ -50,6 +51,7 @@ module idex (input CLK, nRST, idex_if.id idexif);
        idexif.WEN_out       <= 0;
        idexif.lui_word_out <= 0;
        idexif.pc_select_out <= NEXT;
+       idexif.datomic_out <= 0;
     end
     else if (idexif.enable) begin
       idexif.imemload_out  <= idexif.imemload_in;
@@ -65,8 +67,9 @@ module idex (input CLK, nRST, idex_if.id idexif);
       idexif.wdatsel_out   <= idexif.wdatsel_in;
       idexif.wsel_out      <= idexif.wsel_in;
       idexif.WEN_out       <= idexif.WEN_in;
-      idexif.lui_word_out  <=  idexif.lui_word_in;
+      idexif.lui_word_out  <= idexif.lui_word_in;
       idexif.pc_select_out <= idexif.pc_select_in;
+      idexif.datomic_out   <= idexif.datomic_in;
     end
 
   end // end always_ff

@@ -27,14 +27,14 @@ interface idex_if;
 
 // from Control Unit
   word_t immediate_in,lui_word_in; 
-  logic alusrc_in,  dWEN_in, dREN_in, halt_in, WEN_in;
+  logic alusrc_in,  dWEN_in, dREN_in, halt_in, WEN_in, datomic_in;
   aluop_t aluop_in;
   regbits_t wsel_in;
   wdatselect_t wdatsel_in; 
   pcselect_t  pc_select_in;
 
   word_t immediate_out, lui_word_out;
-  logic alusrc_out,  dWEN_out, dREN_out, halt_out, WEN_out;
+  logic alusrc_out,  dWEN_out, dREN_out, halt_out, WEN_out, datomic_out;
   aluop_t aluop_out;
   regbits_t wsel_out;
   wdatselect_t wdatsel_out; 
@@ -47,10 +47,10 @@ interface idex_if;
   modport id (
     input     imemload_in, npc_in, rdat1_in, rdat2_in, immediate_in, alusrc_in, aluop_in, 
                dWEN_in, dREN_in, halt_in, wdatsel_in, wsel_in, WEN_in, lui_word_in, 
-              pc_select_in, enable, flush,
+              pc_select_in, enable, flush, datomic_in,
     output    imemload_out, npc_out, rdat1_out, rdat2_out, immediate_out, alusrc_out, aluop_out, 
               dWEN_out, dREN_out, halt_out, wdatsel_out, wsel_out, WEN_out, lui_word_out,
-              pc_select_out
+              pc_select_out, datomic_out
   );
   //  tb
   modport tb (
