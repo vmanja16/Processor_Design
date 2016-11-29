@@ -70,7 +70,9 @@ Replacement/Halt writebacks are snoop independent.
 typedef enum logic [3:0] {IDLE, LOAD_0, LOAD_1, 
                           WRITE_BACK_0, WRITE_BACK_1,
                           INVALIDATE_0, INVALIDATE_1,
-                          SNOOP, WRITE_MISS_CLEAN_0, WRITE_MISS_CLEAN_1} coherence_state_t;
+                          SNOOP, WRITE_MISS_CLEAN_0, WRITE_MISS_CLEAN_1,
+                          CACHECACHE0, CACHECACHE1,
+                          LOAD_SNOOP} coherence_state_t;
 
 coherence_state_t state, next_state;
 
@@ -79,15 +81,17 @@ logic select; // selects which cache's arbitration signals to send
 logic requestor, next_requestor, rec;
 logic snoop_hit;
 
+word_t word_0, next_word_0;
 /****************************************************************************************************************************
 //                                            COHERENCE
 /***************************************************************************************************************************/
 
 always_ff @ (posedge CLK, negedge nRST) begin
-  if (!nRST) begin state <= IDLE; requestor <= 0; end
+  if (!nRST) begin state <= IDLE; requestor <= 0; word_0<=0; end
   else       begin 
     state     <= next_state; 
     requestor <= next_requestor; 
+    word_0    <= next_word_0;
   end
 
 end // end always_ff
@@ -116,6 +120,7 @@ always_comb begin
   cocif.ramWEN = 0;
   cocif.ramaddr = 32'hBAD1BAD1;
   cocif.ramstore = 32'hBAD1BAD1;
+  next_word_0 = word_0;
 
 
   // DREN & !cctrans = READ_MISS
@@ -134,57 +139,55 @@ always_comb begin
       else if (ccif.cctrans[requestor]) next_state = INVALIDATE_0; // clean hit on cache 
       else begin
         next_requestor = !requestor;
-        //if (ccif.dREN[rec])    next_state = SNOOP; // read_miss or write_miss
-        //else if (ccif.dWEN[rec])    next_state = WRITE_BACK_0; // writing back 
-        //else if (ccif.cctrans[rec]) next_state = INVALIDATE_0; // clean hit on cache      
       end                        
     end
     SNOOP: begin
       ccif.ccwait[rec] =  1;
-      next_state           = LOAD_0;
+      next_state           = LOAD_SNOOP;
       if(ccif.cctrans[requestor]) next_state = WRITE_MISS_CLEAN_0;
     end
    
 // LOAD_0-1 states take care of 1. requestor Read_miss 2. the rec's response to BusRD
-    LOAD_0: begin
-      if(snoop_hit) begin 
-        ccif.ccwait[rec] = 1;
-        ccif.dload[requestor]  = ccif.dstore[rec]; // CACHE -> CACHE transfer
-        cocif.ramWEN = 1; cocif.ramstore = ccif.dstore[rec]; cocif.ramaddr = ccif.daddr[requestor];
-        ccif.dwait[rec] = cocif.wait_in; // To transition dcache::rec to SNOOP_1 state
-      end
-      else begin cocif.ramREN = 1; cocif.ramaddr = ccif.daddr[requestor]; ccif.dload[requestor]=ccif.ramload; end
-      
-      ccif.dwait[requestor] = cocif.wait_in;
-      if (!cocif.wait_in) next_state = LOAD_1;            
+    LOAD_SNOOP: begin
+      if(snoop_hit) begin next_state=CACHECACHE0; end
+      else begin next_state = LOAD_0; end;            
     end
-    LOAD_1: begin
-      if(snoop_hit) begin 
-        ccif.ccwait[rec] = 1;
+    CACHECACHE0: begin
+      ccif.dload[requestor]  = ccif.dstore[rec]; // CACHE -> CACHE transfer
+      cocif.ramWEN = 1; cocif.ramstore = ccif.dstore[rec]; cocif.ramaddr = ccif.daddr[requestor];
+      ccif.dwait[rec] = cocif.wait_in; // To transition dcache::rec to SNOOP_1 state
+      ccif.dwait[requestor] = cocif.wait_in;
+      if (!cocif.wait_in) next_state = CACHECACHE1;
+    end
+    CACHECACHE1: begin
         ccif.dload[requestor] = ccif.dstore[rec]; // CACHE -> CACHE transfer
         cocif.ramWEN=1; cocif.ramstore = ccif.dstore[rec]; cocif.ramaddr = ccif.daddr[requestor]; 
         ccif.dwait[rec] = cocif.wait_in; // To transition dcache::rec out to SNOOP_1 state
-      end
-      else begin  cocif.ramREN = 1; cocif.ramaddr = ccif.daddr[requestor]; ccif.dload[requestor]=ccif.ramload; end
+        ccif.dwait[requestor] = cocif.wait_in;   
+      if (!cocif.wait_in) begin next_state = IDLE; next_requestor = !requestor; end
+    end
+    LOAD_0: begin
+      cocif.ramREN = 1; cocif.ramaddr = ccif.daddr[requestor]; ccif.dload[requestor]=ccif.ramload; 
+      ccif.dwait[requestor] = cocif.wait_in;
+      if (!cocif.wait_in) next_state = LOAD_1;
+    end
+    LOAD_1: begin
+      cocif.ramREN = 1; cocif.ramaddr = ccif.daddr[requestor]; ccif.dload[requestor]=ccif.ramload;
       ccif.dwait[requestor] = cocif.wait_in;   
       if (!cocif.wait_in) begin next_state = IDLE; next_requestor = !requestor; end
     end
-
-
     WRITE_MISS_CLEAN_0: begin
+      ccif.ccsnoopaddr[rec] = {ccif.daddr[requestor][31:3], !ccif.daddr[requestor][2], 2'b00}; // FOR LINK MATCHING
+      
       if(snoop_hit) begin
-        ccif.ccwait[rec] = 1;
         cocif.ramWEN = 1; cocif.ramstore = ccif.dstore[rec]; cocif.ramaddr = {ccif.daddr[requestor][31:3],3'b000};
         ccif.dwait[rec] = cocif.wait_in; // -> rec::SNOOP_1
-        if(!cocif.wait_in) begin
-          next_state = WRITE_MISS_CLEAN_1; 
-        end
+        next_word_0 = ccif.dstore[rec];
+        
+        if(!cocif.wait_in) begin next_state = WRITE_MISS_CLEAN_1; end
       end
       else begin
         ccif.ccinv[rec] = 1; 
-
-        ccif.ccsnoopaddr[rec] = {ccif.daddr[requestor][31:3], !ccif.daddr[requestor][2], 2'b00}; // FOR LINK MATCHING
-        
         cocif.ramREN = 1; cocif.ramaddr = ccif.daddr[requestor]; ccif.dload[requestor]=ccif.ramload;
         ccif.dwait[requestor] = cocif.wait_in;   
         if (!cocif.wait_in) begin next_state = IDLE; next_requestor = !requestor; end
@@ -192,13 +195,13 @@ always_comb begin
     end
 
     WRITE_MISS_CLEAN_1: begin
-      ccif.ccwait[rec] = 1;
       ccif.ccinv[rec]  = 1;
-
       ccif.ccsnoopaddr[rec] = {ccif.daddr[requestor][31:3], !ccif.daddr[requestor][2], 2'b00}; // FOR LINK MATCHING
       
       cocif.ramWEN = 1; cocif.ramstore = ccif.dstore[rec]; cocif.ramaddr = {ccif.daddr[requestor][31:3],3'b100};
-      ccif.dload[requestor] = ccif.daddr[requestor][2] ? ccif.dstore[rec] : ccif.daddr[rec];
+      
+      ccif.dload[requestor] = ccif.daddr[requestor][2] ? ccif.dstore[rec] : word_0; //ccif.daddr[rec];
+
       ccif.dwait[requestor] = cocif.wait_in; ccif.dwait[rec] = cocif.wait_in;
       if(!cocif.wait_in) begin
         next_state = IDLE; next_requestor = !requestor;
@@ -228,12 +231,10 @@ always_comb begin
       next_state = INVALIDATE_1;
     end
     INVALIDATE_1: begin 
-      //ccif.ccwait[rec] = 1; REC is in "SNOOP" state
       ccif.ccinv[rec] = 1;
       next_state = IDLE;  next_requestor = !requestor; 
       ccif.dwait[requestor] = 0; // Go ahead with req::S->M transition!
     end
-    
   endcase
   
 end //
