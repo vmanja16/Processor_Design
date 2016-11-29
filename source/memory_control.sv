@@ -58,6 +58,7 @@ the coherence control lets the requesting cache block continue with the original
 /****************************************************************************************************************************
 //                                            COHERENCE
 /***************************************************************************************************************************/
+
 coherence_control_if cocif();
 coherence_control COHERENCE(CLK, nRST,ccif,cocif);
 

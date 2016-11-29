@@ -57,7 +57,7 @@ logic [2:0] index;
 logic  LRU [7:0], next_LRU;
 dcachef_t daddr_in, snoop_in;
 dcacheframe_t  next_set [1:0];
-dstate_t state, next_state, prev_state;
+dstate_t state, next_state;
 dcacheframe_t sets[7:0][1:0];
 dcacheframe_t lru_frame, frame0, frame1, halt_frame, snoop_frame;
 logic blkoff, match0, match1, match, lru;
@@ -71,11 +71,11 @@ logic count_written, next_count_written;
 logic readhit, read_tag_miss_clean, read_tag_miss_dirty, writehit, write_tag_miss_clean, write_tag_miss_dirty, snoop_match;
 logic snoop_match1, snoop_match0;
 
-logic next_snoop_dirty, next_halt_dirty, next_snoop_valid, write_wait; logic snoop_enable;
+logic next_snoop_dirty, next_halt_dirty, next_snoop_valid, write_wait;
 
 logic link_match, snoop_link_match, write_atomic, atomic_hit, write_atomic_fail;
 word_t atomic_val;
-
+logic [2:0]ind;
 /*
   readhit: read and data is in cache
   read_tag_miss_clean: (LRU is clean) so load data 0,1 from memory into LRU, set nLRU = ~LRU, valid =1 dirty =0, dREN = 1;
@@ -86,22 +86,51 @@ word_t atomic_val;
   write_tag_miss_dirty: (LRU dirty) Writeback LRU 0,1, move to write_tag_miss_clean
 
 */
+
+// UPDATE REGISTERS
+always_ff @(posedge CLK, negedge nRST) begin 
+  if(!nRST) begin 
+      sets       <= '{default:'0};
+      LRU        <= '{default:'0};
+      state      <= IDLE;
+      halt_count <= 0;
+      count_written <= 0;
+      link_valid <= 0;
+      link_address <= 0;
+
+  end
+  //else if (count_written) begin sets <= '{default:'0}; link_valid <=0; end
+  else begin
+    sets[ind]   <= next_set;
+    LRU[index]    <= next_LRU;
+    state         <= next_state;
+    halt_count    <= next_halt_count;
+    count_written <= next_count_written;
+    link_valid    <= next_link_valid;
+    link_address <= next_link_address;  
+  end
+end // end always_ff
+
+
+
 // OUTPUTS
  // dc.dhit dc.dREN dc.dWEN dc.daddr dc.dstore dc.dmemload
- assign dc.dhit     = ((readhit || (writehit && !write_wait)) && (state==IDLE)) || (atomic_hit);
+ assign dc.dhit     = ((readhit || (!write_wait)) && (state==IDLE)) || (atomic_hit);
  assign dc.dmemload = write_atomic ? atomic_val : sets[index][match1].data[blkoff];
  assign dc.flushed  = (count_written); 
  
 // COHERENCE
   assign dc.ccwrite = snoop_match && snoop_frame.dirty;
 // SNOOPING
-  assign snoop_match = (snoop_match0 ) || ( snoop_match1  );
-  assign snoop_match0 = (sets[snoop_in.idx][0].valid) && (snoop_in.tag == sets[snoop_in.idx][0].tag);
-  assign snoop_match1 = (sets[snoop_in.idx][1].valid) && (snoop_in.tag == sets[snoop_in.idx][1].tag);
-  assign snoop_in.blkoff = dc.ccsnoopaddr[2];
   assign snoop_in.idx    = dc.ccsnoopaddr[5:3];
   assign snoop_in.tag    = dc.ccsnoopaddr[31:6];
-  assign snoop_frame     = sets[snoop_in.idx][!snoop_match0];
+  assign snoop_in.blkoff = dc.ccsnoopaddr[2];
+
+  assign snoop_match0 = (sets[snoop_in.idx][0].valid) && (snoop_in.tag == sets[snoop_in.idx][0].tag);
+  assign snoop_match1 = (sets[snoop_in.idx][1].valid) && (snoop_in.tag == sets[snoop_in.idx][1].tag);
+  assign snoop_frame     = sets[snoop_in.idx][snoop_match1];
+  assign snoop_match = (snoop_match0 ) || ( snoop_match1  );
+ 
 
 // LINKING
   assign link_match          = (dc.dmemaddr    == link_address) && link_valid;
@@ -117,15 +146,17 @@ word_t atomic_val;
   assign daddr_in.blkoff = dc.dmemaddr[2];
   assign daddr_in.idx    = dc.dmemaddr[5:3];
   assign daddr_in.tag    = dc.dmemaddr[31:6];
-
+/*
 always_comb begin
-  index = daddr_in.idx;
-  if(state==SNOOP_0) index = snoop_in.idx;
-  if(state==SNOOP_1) index = snoop_in.idx;
-  if(state==HALT_0)  index = halt_idx;
-  if(state==HALT_1)  index = halt_idx; 
+  //ind = daddr_in.idx;
+  if(state==SNOOP_0) ind = snoop_in.idx;
+  else if(state==SNOOP_1) ind = snoop_in.idx;
+  else if(state==HALT_0)  ind = halt_idx;
+  else if(state==HALT_1)  ind = halt_idx; 
+  else ind = daddr_in.idx;
 end
-  //assign index      = daddr_in.idx;
+*/
+  assign index      = daddr_in.idx;
   
   assign blkoff     = daddr_in.blkoff;
   assign frame0     = sets[index][0];
@@ -151,36 +182,13 @@ end
   assign write_tag_miss_clean = dc.dmemWEN &&  (!match) && (!lru_frame.dirty);
   assign write_tag_miss_dirty = dc.dmemWEN &&  (!match) && lru_frame.dirty;
 
-// UPDATE REGISTERS
-always_ff @(posedge CLK, negedge nRST) begin 
-  if(!nRST) begin 
-      sets       <= '{default:'0};
-      LRU        <= '{default:'0};
-      state      <= IDLE;
-      halt_count <= 0;
-      count_written <= 0;
-      prev_state <= IDLE;
-      link_valid <= 0;
-      link_address <= 0;
 
-  end
-  else if (count_written) begin sets <= '{default:'0}; link_valid <=0; end
-  else begin
-    sets[index]   <= next_set;
-    LRU[index]    <= next_LRU;
-    state         <= next_state;
-    halt_count    <= next_halt_count;
-    count_written <= next_count_written;
-    prev_state    <= state;
-    link_valid    <= next_link_valid;
-    link_address <= next_link_address;  
-  end
-end // end always_ff
 
 always_comb begin
+  ind = daddr_in.idx;
   atomic_val = 0;
   dc.cctrans = 0;
-  next_set   = sets[index];
+  next_set   = sets[ind];
   next_LRU   = LRU[index];
   next_state = state;
   next_halt_count = halt_count;
@@ -193,7 +201,7 @@ always_comb begin
   next_link_valid = link_valid;
   write_wait = 1;
   atomic_hit = 0;
-  
+
   casez (state)
     IDLE: begin
       if (readhit) begin 
@@ -233,16 +241,16 @@ always_comb begin
       else if (write_tag_miss_dirty) next_state = WRITEBACK_0;
     end // end IDLE
     LOAD_0: begin
-      dc.dREN = 1; dc.daddr = dc.dmemaddr - (blkoff ? 4 : 0);
+      dc.dREN = 1; dc.daddr = {dc.dmemaddr[31:3],3'b000};
       if (!dc.dwait) begin
         next_state = LOAD_1;
         next_set[lru].data[0] = dc.dload;
         next_set[lru].valid = 0; next_set[lru].dirty = 0;
       end
-    if (dc.ccwait) begin next_state = SNOOP_0; end
+      if (dc.ccwait) begin next_state = SNOOP_0; end
     end
     LOAD_1: begin
-      dc.dREN = 1; dc.daddr = dc.dmemaddr + (blkoff ? 0 : 4);
+      dc.dREN = 1; dc.daddr = {dc.dmemaddr[31:3], 3'b100};
       if (!dc.dwait) begin
         next_state            = IDLE;
         next_set[lru].data[1] = dc.dload;
@@ -253,7 +261,7 @@ always_comb begin
       end
     end
     WRITEBACK_0: begin
-      dc.dWEN = 1; dc.daddr = lru_addr;    dc.dstore = lru_frame.data[0];
+      dc.dWEN = 1; dc.daddr = lru_addr; dc.dstore = lru_frame.data[0];
       if (!dc.dwait) next_state = WRITEBACK_1;
       if (dc.ccwait) begin next_state = SNOOP_0; end
     end
@@ -262,14 +270,12 @@ always_comb begin
       if (!dc.dwait) begin
         next_state = LOAD_0;
         next_set[lru].dirty = 0;
-        if (write_tag_miss_dirty) begin
-          next_state = WRITE_MISS_CLEAN;
-        end
+        if (write_tag_miss_dirty) begin next_state = WRITE_MISS_CLEAN; end
       end
     end
     WRITE_MISS_CLEAN: begin
       dc.cctrans = 1;
-      dc.dREN = 1; dc.daddr = dc.dmemaddr + (blkoff ? -4 : 4);
+      dc.dREN = 1; dc.daddr = {dc.dmemaddr[31:3], !blkoff, 2'b00};
       if (!dc.dwait) begin
         next_set[lru].data[blkoff]  = dc.dmemstore; // write to word from DP
         next_set[lru].data[!blkoff] = dc.dload;  // write to other word from Mem
@@ -281,47 +287,52 @@ always_comb begin
         if(write_atomic) begin atomic_hit =1; atomic_val = 1; end // SC returns 1
         if (link_match) next_link_valid = 0; // invalidates on Store to link_addr
       end
-      if (dc.ccwait) begin next_state = SNOOP_0; end
     end
     HALT_0: begin
-      if (halt_count == 16) next_state = FLUSHED;
-      else if (halt_frame.dirty) begin 
-        dc.dWEN = 1; dc.daddr = halt_addr; dc.dstore = halt_frame.data[0]; 
-        if (!dc.dwait) next_state = HALT_1;
-      end
-      else begin
-        next_state = HALT_0; next_set[halt_count[0]].valid =0; next_set[halt_count[0]].dirty=0;
-        next_halt_count = halt_count + 1;
-      end
+      ind = halt_count[3:1];
+      next_set = sets[ind];
+      dc.daddr = halt_addr; dc.dstore = halt_frame.data[0]; 
+        if (halt_count == 16) next_state = FLUSHED;
+        else if (halt_frame.dirty) begin 
+          dc.dWEN = 1; 
+          if (!dc.dwait) next_state = HALT_1;
+        end
+        else begin
+          next_state = HALT_0; next_set[halt_count[0]].valid =0; next_set[halt_count[0]].dirty=0;
+          next_halt_count = halt_count + 1;
+        end
       if (dc.ccwait) begin next_state = SNOOP_0; end
     end
     HALT_1: begin
+        ind = halt_count[3:1];
+        next_set = sets[ind];
         dc.dWEN = 1; dc.daddr = halt_addr+4; dc.dstore = halt_frame.data[1]; 
-        if (!dc.dwait) begin next_state = HALT_0; next_halt_count = halt_count + 1;  
+        if (!dc.dwait) begin 
+          next_state = HALT_0; next_halt_count = halt_count + 1;  
           next_set[halt_count[0]].valid=0; next_set[halt_count[0]].dirty = 0; 
         end
     end
     FLUSHED: begin next_count_written = 1; end
     SNOOP_0: begin
-      dc.dstore = snoop_frame.data[0];
-      dc.daddr  = snoop_frame.data[1];
-      if(snoop_match) begin 
-        if(dc.ccinv) begin 
-          next_set[snoop_match1].valid = 0; next_set[snoop_match1].dirty=0;
-          next_state=IDLE;
-
-          if(snoop_link_match) next_link_valid = 0; // LINK INVALIDATE 
-        end
+      ind = snoop_in.idx;
+      next_set = sets[ind];
+      dc.dstore = next_set[snoop_match1].data[0];
+      //dc.daddr  = next_set[snoop_match1].data[1];
+      if(snoop_link_match && dc.ccinv) next_link_valid = 0; // LINK INVALIDATE 
+      
+      if(snoop_match && dc.ccinv) begin next_set[snoop_match1].valid = 0; next_set[snoop_match1].dirty=0; end 
+      if(dc.ccwrite) begin
         if(!dc.dwait) begin next_state = SNOOP_1; end;
       end
       else begin next_state = IDLE; end
-      if(!dc.ccwait) begin next_state = IDLE; end;  
     end
     SNOOP_1: begin
-      dc.dstore = snoop_frame.data[1];
-      dc.daddr  = snoop_frame.data[0];
+      ind = snoop_in.idx;
+      next_set = sets[ind];
+      dc.dstore = next_set[snoop_match1].data[1];
+      //dc.daddr  = next_set[snoop_match1].data[0];
+      if (dc.ccinv) begin  next_set[snoop_match1].valid=0;   if(snoop_link_match) next_link_valid=0; end
       if(!dc.dwait) begin
-        if (dc.ccinv) begin  next_set[snoop_match1].valid=0;   if(snoop_link_match) next_link_valid=0; end
         next_set[snoop_match1].dirty = 0;
         next_state = IDLE;
       end
